@@ -1,0 +1,35 @@
+INSIGHTS DE ACTIVACIÓN DE MANDATO — PUBLICAR EN NETLIFY (SOLO NAVEGADOR)
+=======================================================================
+
+Todo se hace desde el navegador. No necesitas PowerShell ni instalar nada.
+Se hace UNA sola vez; después solo cargas tus archivos desde la página.
+
+A) SUBIR LOS ARCHIVOS A GITHUB
+1. Crea una cuenta gratis en https://github.com (o entra con la tuya).
+2. Arriba a la derecha: "+" > "New repository".
+   Nombre: insights-mandato · elige "Private" · "Create repository".
+3. En la página del repositorio: "uploading an existing file".
+4. Descomprime este zip y arrastra AL MISMO TIEMPO:
+   la carpeta public, la carpeta netlify, netlify.toml y package.json.
+5. Abajo: "Commit changes".
+   Revisa que aparezcan public/index.html y netlify/functions/api.mjs.
+
+B) CONECTAR NETLIFY CON GITHUB
+1. Entra a https://app.netlify.com y abre tu sitio insightsmandato.
+2. Site configuration > Build & deploy > Continuous deployment >
+   "Link repository" > GitHub > autoriza > elige insights-mandato.
+3. Deja la configuración que propone Netlify:
+   Build command: vacío · Publish directory: public · Functions: netlify/functions
+   y presiona "Deploy".
+
+C) CREAR TU CLAVE
+1. Site configuration > Environment variables > "Add a variable".
+   Key: ADMIN_KEY · Value: la clave que tú quieras · "Create variable".
+2. Deploys > "Trigger deploy" > "Deploy site" (para que tome la clave).
+
+D) LISTO
+- Supervisores:        https://insightsmandato.netlify.app
+- Tú (subir bases):    https://insightsmandato.netlify.app/#admin
+
+Si en el futuro te paso una versión nueva de index.html, solo la subes en
+GitHub (public > Add file > Upload files) y Netlify se actualiza solo.

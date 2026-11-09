@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Insights Activación de Mandato</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+/* Layout: barra de carga + filtros pegajosa, luego resumen (KPIs + hallazgos) y módulos de detalle en grilla */
+:root{
+  --navy:#002060; --sky:#71A0FF; --bg:#F3F5FA; --surface:#FFFFFF; --ink:#141B2D; --muted:#5B6478; --line:#DDE2EE;
+  --ok:#1F9D6B; --warn:#D98A00; --bad:#D6453D; --okbg:#E3F4EC; --warnbg:#FDF1DA; --badbg:#FBE5E3; --chip:#E8EEFC;
+  --display:"Archivo","Segoe UI",Arial,sans-serif; --body:"IBM Plex Sans","Segoe UI",Arial,sans-serif; --mono:"IBM Plex Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--navy:#9DBBFF;--sky:#71A0FF;--bg:#0E1424;--surface:#161E33;--ink:#E7ECF7;--muted:#9AA4BC;--line:#2A3552;--ok:#46C690;--warn:#F0B33E;--bad:#F07068;--okbg:#173B2E;--warnbg:#3D3015;--badbg:#42201F;--chip:#22305A;color-scheme:dark}}
+:root[data-theme="dark"]{--navy:#9DBBFF;--sky:#71A0FF;--bg:#0E1424;--surface:#161E33;--ink:#E7ECF7;--muted:#9AA4BC;--line:#2A3552;--ok:#46C690;--warn:#F0B33E;--bad:#F07068;--okbg:#173B2E;--warnbg:#3D3015;--badbg:#42201F;--chip:#22305A;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45}
+.wrap{max-width:1360px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+header.top{background:#002060;color:#fff}
+header.top .wrap{padding-block:20px 18px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.brand small{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#71A0FF}
+.brand h1{font-family:var(--display);font-weight:800;font-size:clamp(22px,3vw,30px);margin:4px 0 2px;letter-spacing:-.01em;text-wrap:balance}
+.brand p{margin:0;color:#C9D6F5;font-size:13px}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:600 13px var(--body);border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:6px;padding:8px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{background:rgba(255,255,255,.12)} .btn.primary{background:#71A0FF;border-color:#71A0FF;color:#001240}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.loader{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:16px}
+.drop{border:1.5px dashed var(--line);background:var(--surface);border-radius:8px;padding:12px 14px;display:flex;gap:12px;align-items:center;cursor:pointer;min-width:0}
+.drop:hover,.drop.drag{border-color:var(--sky)}
+.drop b{font-family:var(--display);font-size:13px;display:block}
+.drop span{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.drop .tag{font-family:var(--mono);font-size:11px;background:var(--chip);color:var(--navy);border-radius:4px;padding:3px 6px;flex:none}
+.status{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px}
+.filters{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px;border-bottom:1px solid var(--line);margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.f{display:flex;flex-direction:column;gap:3px;min-width:130px;flex:1 1 130px}
+.f label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+select{font:13px var(--body);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);width:100%}
+.toggle{display:flex;gap:8px;align-items:center;font-size:13px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 10px;flex:1 1 220px}
+.toggle input{accent-color:#002060;width:16px;height:16px}
+h2{font-family:var(--display);font-size:17px;margin:0;color:var(--navy);letter-spacing:-.005em}
+.sec{margin-top:22px}
+.sechead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.sechead p{margin:0;color:var(--muted);font-size:12.5px;max-width:70ch}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px}
+.kpi .l{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpi .v{font-family:var(--display);font-size:28px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.kpi .s{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.kpi.hero .v{color:var(--navy)}
+.v.ok{color:var(--ok)!important}.v.warn{color:var(--warn)!important}.v.bad{color:var(--bad)!important}
+.insights{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.ins{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px 12px 18px;min-width:0;cursor:help;outline:none}
+.ins::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 3px 3px 0;background:var(--sky)}
+.ins.bad::before{background:var(--bad)}.ins.warn::before{background:var(--warn)}.ins.ok::before{background:var(--ok)}
+.ins .il{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ins .iv{font-family:var(--display);font-size:26px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.1}
+.ins .is{font-size:12.5px;color:var(--ink);margin-top:2px;overflow-wrap:anywhere}
+.ins .ih{font-size:11px;color:var(--navy);font-weight:600;margin-top:6px}
+.ins .tip{display:none;position:absolute;z-index:20;left:-1px;right:-1px;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--sky);border-radius:8px;padding:10px 12px;box-shadow:0 10px 28px rgba(0,20,60,.22);font-size:12.5px}
+.ins:hover .tip,.ins:focus .tip,.ins:focus-within .tip{display:block}
+.ins:hover,.ins:focus{border-color:var(--sky)}
+.tip table{width:100%;border-collapse:collapse;font-size:12px}
+.tip td{border:0;padding:3px 0;vertical-align:top} .tip td+td{text-align:right;padding-left:10px;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600}
+.tip tr:hover td{background:transparent}
+.tip .tt{font-weight:700;font-family:var(--display);color:var(--navy);margin:0 0 6px;font-size:12.5px}
+.tip .tn{color:var(--muted);font-size:11.5px;margin-top:6px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+.panel h3{font-family:var(--display);font-size:14px;margin:0 0 10px;color:var(--ink)}
+.bars{display:flex;flex-direction:column;gap:7px}
+.kpi.click{cursor:pointer;position:relative;text-align:left;border:0;font:inherit;color:inherit;width:100%}
+.kpi.click:hover{background:var(--chip)} .kpi.click.sel{box-shadow:inset 0 -3px 0 #71A0FF;background:var(--chip)}
+.kpi.click:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+.kpi .go{font-size:11px;color:var(--navy);font-weight:600;margin-top:4px}
+.acc{display:flex;flex-direction:column;gap:8px}
+.acch{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.acch:hover{border-color:var(--sky)} .acch:focus-visible{outline:2px solid var(--sky)}
+.acch b{font-family:var(--display);font-size:15px;color:var(--navy)} .acch .m{font-size:12.5px;color:var(--muted);margin-left:10px}
+.acch .ar{font-size:12px;color:var(--navy);font-weight:600}
+.accb{border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;margin-top:-10px;padding:10px;background:var(--surface)}
+.skulist{margin:0;padding-left:16px} .skulist li{margin:2px 0}
+.thumb{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:84px}
+.thumb img{width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;background:var(--chip);display:block}
+.thumb a{font-size:11px;font-weight:600;white-space:nowrap}
+#lb{position:fixed;inset:0;z-index:50;background:rgba(5,10,25,.85);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));cursor:zoom-out}
+#lb img{max-width:100%;max-height:88vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+#lb .lbbar{position:absolute;top:max(14px,env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:8px}
+#lb .lbbar a,#lb .lbbar button{font:600 13px var(--body);background:#fff;color:#002060;border:0;border-radius:6px;padding:8px 12px;cursor:pointer;text-decoration:none}
+@media print{.thumb img{width:60px;height:60px}.thumb a{display:none}#lb{display:none!important}}
+.barbtn{all:unset;box-sizing:border-box;width:100%;cursor:pointer;border-radius:4px;padding:2px 4px}
+.barbtn:hover,.barbtn.sel{background:var(--chip)} .barbtn:focus-visible{outline:2px solid var(--sky)}
+.bar{display:grid;grid-template-columns:minmax(90px,150px) 1fr 54px;gap:8px;align-items:center;font-size:12.5px}
+.bar .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{display:flex;height:16px;border-radius:3px;overflow:hidden;background:var(--chip)}
+.track i{display:block;height:100%}
+.i-ok{background:var(--ok)}.i-obs{background:var(--warn)}.i-no{background:var(--bad)}
+.bar .p{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:10px;flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
+.tw{overflow-x:auto;max-height:440px;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:#002060;color:#fff;text-align:left;font-weight:600;padding:7px 9px;white-space:nowrap;font-size:11.5px;cursor:pointer}
+td{padding:6px 9px;font-variant-numeric:tabular-nums;border-top:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:var(--chip)}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.p-ok{background:var(--okbg);color:var(--ok)}.p-warn{background:var(--warnbg);color:var(--warn)}.p-bad{background:var(--badbg);color:var(--bad)}.p-mut{background:var(--chip);color:var(--muted)}
+.heat td.h{text-align:center;font-variant-numeric:tabular-nums;font-weight:600;min-width:62px}
+a{color:var(--navy)}
+.small{font-size:12px;color:var(--muted)}
+svg text{fill:var(--muted);font-family:var(--mono);font-size:10px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tab{font:600 12.5px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 11px;border-radius:16px;cursor:pointer}
+.tab.on{background:#002060;color:#fff;border-color:#002060}
+.search{font:13px var(--body);padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);min-width:0;width:240px;max-width:100%}
+.modes{display:flex;gap:4px;flex-wrap:wrap;margin-top:14px;border-bottom:1px solid var(--line)}
+.mode{all:unset;cursor:pointer;font:600 13.5px var(--body);color:var(--muted);padding:10px 14px;border-bottom:3px solid transparent;margin-bottom:-1px;display:inline-flex;gap:8px;align-items:center}
+.mode:hover{color:var(--ink)} .mode.on{color:var(--navy);border-bottom-color:#71A0FF} .mode:focus-visible{outline:2px solid var(--sky)}
+.mode .cnt{font:600 11px var(--mono);background:var(--chip);color:var(--navy);border-radius:10px;padding:1px 7px}
+.bar-note{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--warnbg);color:var(--ink);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px}
+.bar-note.info{background:var(--chip);border-color:var(--sky)}
+.bar-note.ok{background:var(--okbg);border-color:var(--ok)}
+.btn2{font:600 13px var(--body);border:1px solid #002060;background:#002060;color:#fff;border-radius:6px;padding:7px 12px;cursor:pointer}
+.btn2.ghost{background:var(--surface);color:var(--navy);border-color:var(--line)}
+.btn2:disabled{opacity:.5;cursor:default}
+.btn2:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.vtools{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:14px}
+.prog{height:8px;border-radius:4px;background:var(--chip);overflow:hidden;min-width:120px}
+.prog i{display:block;height:100%;background:var(--ok)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;font:600 12px var(--body);padding:6px 10px;color:var(--muted);background:var(--surface)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on.c{background:var(--okbg);color:var(--ok)} .seg button.on.x{background:var(--warnbg);color:var(--warn)}
+.seg button:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+.vrow.done td:first-child{box-shadow:inset 3px 0 0 var(--ok)} .vrow.corr td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+.vin{font:13px var(--body);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;min-width:160px}
+.vsel{margin-top:6px}
+.saving{font-size:12px;color:var(--muted)}
+#tVal td:first-child{min-width:220px} #tVal td:nth-child(4){max-width:120px} #tVal td:nth-child(4) .pill{white-space:normal} #tVal .vin{min-width:140px}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+footer{margin-top:28px;font-size:11.5px;color:var(--muted)}
+@media print{
+  .filters{position:static} .actions,.loader,.status,.search,.tabs{display:none!important}
+  .tw{max-height:none;overflow:visible} body{background:#fff} .panel,.ins,.kpis{break-inside:avoid}
+  .ins .tip{display:block;position:static;box-shadow:none;border:0;padding:6px 0 0} .ins .ih{display:none}
+  header.top{-webkit-print-color-adjust:exact;print-color-adjust:exact} th,.track i,.pill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+
+
+<header class="top"><div class="wrap">
+  <div class="brand"><small>Eficacia · Unilever Andina · Modern Trade</small>
+    <h1>Insights de Activación de Mandato</h1>
+    <p id="subtitle">Cruce del mandato del mes con la auditoría en percha</p></div>
+  <div class="actions">
+    <button class="btn" id="bPrint" type="button">🖨 Imprimir</button>
+    <button class="btn primary" id="bExport" type="button">⬇ Exportar Excel</button>
+    <button class="btn" id="bUpdate" type="button" hidden>⬆ Actualizar datos del mes</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <nav class="modes" aria-label="Vistas">
+    <button type="button" class="mode on" data-mode="informe">Informe</button>
+    <button type="button" class="mode" data-mode="valid">Validación de supervisores</button>
+    <button type="button" class="mode" data-mode="recep">Recepción <span class="cnt" id="recCnt">0/0</span></button>
+  </nav>
+  <div class="bar-note" id="draftBar" hidden><span id="draftTxt"></span><span class="confirm"><button type="button" class="btn2" id="bPublish">Publicar para supervisores</button><button type="button" class="btn2 ghost" id="bDiscard">Descartar</button></span></div>
+  <div class="bar-note info" id="emptyState" hidden style="margin-top:14px"><span id="emptyTxt">Todavía no hay datos del mes. La coordinación los cargará pronto.</span></div>
+  <div id="loaderWrap" hidden>
+  <div class="bar-note info" style="margin-top:14px"><span id="loadHint">Sube el archivo de mandato y el Answer del corte nuevo. Al subir los dos se guardan solos en el enlace y los supervisores ven los datos nuevos.</span><span class="confirm"><input class="vin" id="admKey" type="password" placeholder="Clave de administración" aria-label="Clave de administración" hidden style="width:200px;min-width:0"><button type="button" class="btn2" id="bSaveNow" hidden>Guardar con este archivo</button><button type="button" class="btn2 ghost" id="bCloseLoad">Cerrar</button></span></div>
+  <div class="loader">
+    <label class="drop" id="dBase"><span class="tag">XLSX</span><div><b>Archivo de Ejecución de Mandato</b><span>Base cruda</span><span id="nBase" hidden></span></div><input type="file" id="fBase" accept=".xlsx,.xlsm,.xls" hidden></label>
+    <label class="drop" id="dAns"><span class="tag">CSV</span><div><b>Answer (ingresos de campo)</b><span>Ingreso de merch</span><span id="nAns" hidden></span></div><input type="file" id="fAns" accept=".csv,.xlsx,.xls" hidden></label>
+  </div>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div id="vInforme">
+
+  <div class="filters">
+    <div class="f"><label for="fFmt">Formato</label><select id="fFmt"></select></div>
+    <div class="f"><label for="fCat">Categoría</label><select id="fCat"></select></div>
+    <div class="f"><label for="fMarca">Marca</label><select id="fMarca"></select></div>
+    <div class="f"><label for="fCamp">Campaña</label><select id="fCamp"></select></div>
+    <div class="f"><label for="fReg">Regional</label><select id="fReg"></select></div>
+    <select id="fMer" hidden aria-hidden="true"></select>
+    <input type="checkbox" id="fVig" checked hidden>
+    <label class="toggle" style="flex:0 1 auto"><input type="checkbox" id="fFinal" checked> Aplicar validación de supervisores</label>
+  </div>
+
+  <section class="sec"><div class="sechead"><h2>Resumen</h2><p id="kpiNote"></p></div><div class="kpis" id="kpis"></div>
+    <div class="panel" id="kpiDetSec" hidden style="margin-top:10px"><div class="sechead" style="margin-bottom:8px"><h3 id="kpiDetTitle" style="margin:0"></h3><button type="button" class="tab" id="kpiDetClose">Cerrar</button></div>
+    <div class="tw" style="max-height:440px"><table id="tKpiDet"></table></div></div></section>
+
+  <section class="sec"><div class="grid2">
+    <div class="panel"><h3>Activación por formato</h3><div class="bars" id="cFmt"></div><div class="legend"><span style="--c:var(--ok)">Activa según mandato</span><span style="--c:var(--warn)">Activa con observación</span><span style="--c:var(--bad)">No activa</span></div></div>
+    <div class="panel"><h3>Activación por campaña</h3><div class="bars" id="cCamp"></div></div>
+    <div class="panel"><h3>Activación por categoría</h3><div class="bars" id="cCat"></div></div>
+    <div class="panel"><h3>Observaciones por tipo</h3><div id="cObs"></div><p class="small" style="margin:10px 0 0">Haz clic en un tipo para ver formato, producto y fechas de cada caso.</p></div>
+  </div></section>
+
+  <section class="sec" id="obsDetSec" hidden><div class="panel"><div class="sechead" style="margin-bottom:8px"><h3 id="obsDetTitle" style="margin:0"></h3><button type="button" class="tab" id="obsDetClose">Cerrar</button></div>
+    <div class="tw" style="max-height:420px"><table id="tObsDet"></table></div></div></section>
+
+  <section class="sec"><div class="panel"><h3>% activación por fecha de visita</h3><div id="cTrend"></div><div class="small" id="trendNote"></div></div></section>
+
+  <section class="sec"><div class="panel"><h3>Mapa de calor · formato × categoría (% activación)</h3><div class="tw" style="max-height:none"><table class="heat" id="tHeat"></table></div></div></section>
+
+  <section class="sec"><div class="sechead"><h2 id="hallTitle">Hallazgos clave</h2><p>Pasa el mouse sobre cada cifra para ver el detalle.</p></div><div class="insights" id="insights"></div></section>
+
+  <section class="sec"><div class="sechead"><h2>SKUs que no codifican</h2><p id="codNote"></p></div>
+    <div class="acc" id="codAcc"></div></section>
+
+  <section class="sec"><div class="sechead"><h2>Observaciones de las promociones</h2><p>Promociones con alguna observación de campo, con el PDV que la reportó.</p></div>
+    <div class="panel"><div class="tw" style="max-height:420px"><table id="tObsReg"></table></div></div></section>
+
+  <section class="sec">
+    <div class="sechead"><h2>Detalle</h2><input class="search" id="q" placeholder="Buscar en la tabla…" aria-label="Buscar"></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="tw" id="tw"><table id="tDet"></table></div>
+    <div class="small" id="detNote" style="margin-top:6px"></div>
+  </section>
+
+  </div>
+
+  <section id="vValid" hidden>
+    <div class="bar-note info" id="vMsg" hidden></div>
+    <div class="vtools">
+      <div class="f" style="flex:0 1 260px"><label for="supSel">Supervisor</label><select id="supSel"></select></div>
+      <div class="f" style="flex:0 1 170px"><label for="vfEstado">Mostrar</label><select id="vfEstado"><option value="pend">Pendientes</option><option value="all">Todas</option><option value="corr">Corregidas</option><option value="nov">Con novedad</option><option value="no">No activas en campo</option></select></div>
+      <div class="f" style="flex:0 1 200px"><label for="vfCamp">Campaña</label><select id="vfCamp"></select></div>
+      <div class="f" style="flex:1 1 200px"><label for="vq">Buscar</label><input class="vin" id="vq" placeholder="Producto, PDV, observación…"></div>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <div class="sechead" style="margin-bottom:8px;align-items:center">
+        <div><h3 id="vTitle" style="margin:0"></h3><div class="small" id="vSub"></div></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="prog" style="width:160px"><i id="vProg" style="width:0"></i></div><span class="saving" id="vSave" aria-live="polite"></span></div>
+      </div>
+      <div class="vtools" style="margin:0 0 10px;align-items:center" id="vActions"></div>
+      <div class="tw" style="max-height:560px"><table id="tVal"></table></div>
+      <div class="small" id="vNote" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <section id="vRecep" hidden>
+    <div class="sec"><div class="sechead"><h2>Recepción de validaciones</h2><p id="rSub"></p></div>
+      <div class="panel"><div class="tw" style="max-height:none"><table id="tRec"></table></div>
+      <div class="vtools" style="justify-content:space-between;align-items:center"><span class="small" id="rWarn"></span><button type="button" class="btn2" id="bFinal">Generar informe final</button></div></div></div>
+    <div class="sec"><div class="sechead"><h2>Novedades y correcciones de supervisores</h2><p>Todo lo que los supervisores corrigieron o comentaron.</p></div>
+      <div class="panel"><div class="tw" style="max-height:520px"><table id="tNov"></table></div></div></div>
+  </section>
+
+  <footer id="foot"></footer>
+  <div id="lb" hidden><div class="lbbar"><a id="lbOpen" href="#" target="_blank" rel="noopener">Abrir en pestaña nueva</a><button type="button" id="lbClose">Cerrar ✕</button></div><img id="lbImg" alt="Foto de la promoción en percha"></div>
+</main>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+let DATA=null, VIEW={tab:'act',sort:null,drill:null,obsSel:null,codOpen:new Set()};
+const norm=s=>String(s??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+const pct=(a,b)=>b?a/b:null;
+const fp=v=>v==null?'—':(v*100).toFixed(1)+'%';
+const fn=v=>(v??0).toLocaleString('es-EC');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const status=(m)=>{$('#status').textContent=m};
+
+/* ---------- normalización de entradas ---------- */
+function toISO(v){
+  if(v==null||v==='')return '';
+  if(v instanceof Date){const d=v;return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+  if(typeof v==='number'){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10)}
+  const s=String(v).trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return s.slice(0,10);
+}
+function fmtFromForm(form,fmtPdv){
+  const m=norm(form).match(/MT\s+(.+?)\s+-/);let f=m?m[1]:'';
+  if(!f){const p=norm(fmtPdv);f=/AKI/.test(p)?'AKI':/MAXI/.test(p)?'SUPERMAXI':/TIA/.test(p)?'TIA':p;}
+  return f;
+}
+function baseFromRows(cols,rows){
+  const ix={};cols.forEach((c,i)=>ix[norm(c)]=i);
+  const g=(r,k)=>{const i=ix[k];return i==null?'':r[i]};
+  return rows.filter(r=>String(g(r,'VALOR')||'').trim()).map(r=>({
+    fmt:norm(g(r,'FORMATO')),valor:String(g(r,'VALOR')).trim(),camp:String(g(r,'CAMPANA')||'').trim(),mec:String(g(r,'MECANICA')||'').trim(),
+    cat:norm(g(r,'CATEGORIA')),marca:norm(g(r,'MARCA')),cadena:String(g(r,'CADENA')||'').trim(),sku:String(g(r,'SKU')||'').trim(),
+    dcto:g(r,'% DCTO'),ini:toISO(g(r,'FECHA IMPLEMENTACION')),fin:toISO(g(r,'FECHA TERMINACION')),sup:String(g(r,'SUPERVISOR')||'').trim()
+  }));
+}
+function ansFromRows(cols,rows){
+  const ix={};cols.forEach((c,i)=>ix[norm(String(c).replace(/^﻿/,''))]=i);
+  const need=['EJECUCION EN','PREGUNTA','OPCION DE RESPUESTA','NOMBRE PDV','NOMBRE FORMULARIO'];
+  for(const n of need) if(ix[n]==null) throw new Error('El Answer no tiene la columna "'+n+'".');
+  const g=(r,k)=>{const i=ix[k];return i==null?'':(r[i]??'')};
+  return rows.map(r=>({ejec:String(g(r,'EJECUCION EN')),uid:String(g(r,'CREADO POR')),mer:String(g(r,'CREADO POR -NOMBRE')).trim(),jefe:String(g(r,'JEFE DIRECTO NOMBRE')).trim(),
+    preg:String(g(r,'PREGUNTA')).trim(),resp:norm(g(r,'OPCION DE RESPUESTA')),txt:String(g(r,'RESPUESTA DE TEXTO')).trim(),file:String(g(r,'RESPUESTA DE ARCHIVO')).trim(),
+    sec:norm(g(r,'NOMBRE SECCION')),secId:String(g(r,'ID SECCION')),form:String(g(r,'NOMBRE FORMULARIO')),formId:String(g(r,'ID FORMULARIO')),
+    pdv:String(g(r,'NOMBRE PDV')).trim(),pdvId:String(g(r,'ID PDV')),ciudad:String(g(r,'CIUDAD')).trim(),reg:norm(g(r,'REGIONAL')),cadPdv:String(g(r,'CADENA')).trim(),fmtPdv:String(g(r,'FORMATO')).trim(),
+    ord:+g(r,'ORDEN DE PREGUNTA')||0})).filter(r=>r.preg);
+}
+
+/* ---------- motor de cruce ---------- */
+function classifyObs(t){
+  const s=norm(t);if(!s)return '';
+  if(/CODIFIC/.test(s))return 'No codifica';
+  if(/AGOTAD|NO PRESENTE|SIN STOCK|NO HAY|NO EXISTE/.test(s))return 'Producto agotado / no presente';
+  if(/^(S\/?N|N\/?A|OK|ACTIVA SEGUN MANDATO|NO ACTIVA( SEGUN MANDATO)?|ACTIVO|NINGUNA)\.?$/.test(s))return 'Sin detalle';
+  if(/%/.test(s))return 'Descuento distinto al mandato';
+  if(/\$|PRECIO|\d+[.,]\d{1,2}/.test(s))return 'Precio distinto al mandato';
+  if(/VALID|HASTA|FECHA|DEL \d/.test(s))return 'Vigencia distinta';
+  return 'Otra observación';
+}
+const MESES={ENERO:1,FEBRERO:2,MARZO:3,ABRIL:4,MAYO:5,JUNIO:6,JULIO:7,AGOSTO:8,SEPTIEMBRE:9,SETIEMBRE:9,OCTUBRE:10,NOVIEMBRE:11,DICIEMBRE:12};
+function obsDates(t){
+  const s=norm(t),out=[];let m;const re=/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/g;
+  while((m=re.exec(s))){const d=+m[1],mo=+m[2];if(mo<1||mo>12||d<1||d>31)continue;let y=m[3]?+m[3]:2026;if(y<100)y+=2000;if(y<2020)y=2026;out.push(`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`)}
+  const re2=/(\d{1,2}) DE (ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|SETIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)/g;
+  while((m=re2.exec(s)))out.push(`2026-${String(MESES[m[2]]).padStart(2,'0')}-${m[1].padStart(2,'0')}`);
+  return out;
+}
+function refineVig(cat,obs,b){
+  if(cat!=='Vigencia distinta')return cat;
+  const d=obsDates(obs);if(!d.length||!b)return 'Vigencia: fecha no legible en la observación';
+  const fin=d[d.length-1],ini=d.length>1?d[0]:null;
+  if(b.fin&&fin<b.fin)return 'Vigencia: en percha termina antes que el mandato';
+  if(b.fin&&fin>b.fin)return 'Vigencia: en percha termina después que el mandato';
+  if(ini&&b.ini&&ini!==b.ini)return 'Vigencia: en percha inicia en otra fecha';
+  return 'Vigencia: misma fecha que el mandato';
+}
+const dmy=s=>s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'';
+function build(baseRows,ans,meta){
+  baseRows.forEach(b=>{if(b.fmt==='TIA'&&b.fin){b.campOrig=b.campOrig||b.camp;b.camp=+b.fin.slice(8,10)<=15?'1RA QUINCENA':'2DA QUINCENA'}});
+  const bmap=new Map();baseRows.forEach((b,i)=>{b.i=i;bmap.set(b.fmt+'|'+norm(b.valor),b)});
+  const subKey=r=>[r.uid,r.pdvId,r.formId,r.secId,r.ejec].join('|');
+  const subs=new Map();
+  for(const r of ans){const k=subKey(r);if(!subs.has(k))subs.set(k,[]);subs.get(k).push(r)}
+  const evals=[],fuera=[];let sinMatch=new Map();
+  for(const [k,rows] of subs){
+    rows.sort((a,b)=>a.ord-b.ord);
+    const byOrd=new Map(rows.map(r=>[r.ord,r]));
+    const fotos=new Map();rows.forEach(r=>{const p=norm(r.preg);if(p.startsWith('FOTO DE ')&&r.file)fotos.set(p.slice(8),r.file)});
+    for(const r of rows){
+      const p=norm(r.preg);
+      if(/FUERA DE MANDATO/.test(p)&&p.startsWith('¿')){ if(r.resp==='SI'){const d=rows.find(x=>/INDICAR LA PROMOCION FUERA/.test(norm(x.preg)));fuera.push({...r,detalle:d?d.txt:''})} continue }
+      if(!/^(ACTIVA|NO ACTIVA)/.test(r.resp))continue;
+      const fmt=fmtFromForm(r.form,r.fmtPdv);
+      const b=bmap.get(fmt+'|'+p);
+      if(!b){sinMatch.set(fmt+' · '+r.preg,(sinMatch.get(fmt+' · '+r.preg)||0)+1)}
+      let obs='';const nx=byOrd.get(r.ord+1);if(nx&&norm(nx.preg)==='INGRESE LA OBSERVACION')obs=nx.txt;
+      const d=r.ejec.slice(0,10);
+      let mom='SIN MANDATO';
+      if(b){mom=(b.ini&&d<b.ini)?'ANTES':(b.fin&&d>b.fin)?'DESPUES':'VIGENTE'}
+      const res=r.resp.startsWith('NO')?'NO':(/OBSERV/.test(r.resp)?'OBS':'OK');
+      evals.push({d,ejec:r.ejec,mer:r.mer,jefe:r.jefe,pdv:r.pdv,pdvId:r.pdvId,ciudad:r.ciudad,reg:r.reg,fmt,
+        cat:b?b.cat:r.sec,marca:b?b.marca:'',dcto:b?b.dcto:'',camp:b?b.camp:'',sku:b?b.sku:r.preg,valor:b?b.valor:r.preg,bi:b?b.i:-1,ini:b?b.ini:'',fin:b?b.fin:'',sup:b?b.sup:'',
+        res,obs,obsCat:refineVig(classifyObs(obs),obs,b),foto:fotos.get(p)||'',mom});
+    }
+  }
+  return {base:baseRows,evals,fuera,sinMatch:[...sinMatch].map(([k,n])=>({k,n})),meta};
+}
+
+/* ---------- filtros ---------- */
+const FIL=['fFmt','fCat','fMarca','fCamp','fReg','fMer'];
+function fillSelect(id,vals,label){const s=$('#'+id),cur=s.value;s.innerHTML='<option value="">Todos</option>'+[...vals].filter(Boolean).sort().map(v=>`<option${v===cur?' selected':''}>${esc(v)}</option>`).join('')}
+function setupFilters(){
+  const E=DATA.evals,B=DATA.base;
+  fillSelect('fFmt',new Set(B.map(b=>b.fmt).concat(E.map(e=>e.fmt))));
+  fillSelect('fCat',new Set(B.map(b=>b.cat)));fillSelect('fMarca',new Set(B.map(b=>b.marca)));
+  fillSelect('fCamp',new Set(B.map(b=>b.camp)));fillSelect('fReg',new Set(E.map(e=>e.reg)));fillSelect('fMer',new Set(E.map(e=>e.mer)));
+}
+function F(){const o={};FIL.forEach(i=>o[i]=$('#'+i).value);o.vig=$('#fVig').checked;o.final=$('#fFinal').checked;return o}
+function filtBase(f){return DATA.base.filter(b=>(!f.fFmt||b.fmt===f.fFmt)&&(!f.fCat||b.cat===f.fCat)&&(!f.fMarca||b.marca===f.fMarca)&&(!f.fCamp||b.camp===f.fCamp))}
+function filtEvals(f,ignoreVig){return DATA.evals.filter(e=>(!f.fFmt||e.fmt===f.fFmt)&&(!f.fCat||e.cat===f.fCat)&&(!f.fMarca||e.marca===f.fMarca)&&(!f.fCamp||e.camp===f.fCamp)&&(!f.fReg||e.reg===f.fReg)&&(!f.fMer||e.mer===f.fMer)&&(ignoreVig||!f.vig||e.mom==='VIGENTE'))}
+
+/* ---------- agregaciones ---------- */
+function agg(list,key){
+  const m=new Map();
+  for(const e of list){const k=typeof key==='function'?key(e):e[key];if(!m.has(k))m.set(k,{k,n:0,ok:0,obs:0,no:0,foto:0,act:0,pdv:new Set(),fv:0});const a=m.get(k);a.n++;a[e.res==='OK'?'ok':e.res==='OBS'?'obs':'no']++;if(e.res!=='NO'){a.act++;if(e.foto)a.foto++}a.pdv.add(e.pdvId);if(e.mom!=='VIGENTE')a.fv++}
+  for(const a of m.values()){a.pa=pct(a.ok+a.obs,a.n);a.pf=pct(a.foto,a.act)}
+  return [...m.values()];
+}
+const RANK={OK:3,OBS:2,NO:1};
+const slug=s=>norm(s).replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'')||'SIN-SUPERVISOR';
+function hashKey(k){let a=2166136261,b=5381;for(let i=0;i<k.length;i++){const c=k.charCodeAt(i);a=Math.imul(a^c,16777619);b=(Math.imul(b,33)+c)|0}return (a>>>0).toString(36)+(b>>>0).toString(36)}
+const ST2RES={'VALIDADO - ACTIVO':'OK','VALIDADO - ACTIVO CON OBSERVACION':'OBS','VALIDADO - NO ACTIVA':'NO','VALIDADO - NO CODIFICA':'NO'};
+const STLIST=Object.keys(ST2RES);
+let VALS={};   // slug supervisor -> documento {sup, items:{h:{d,st,nov,at,por}}, envio}
+function valItem(r){const d=VALS[slug(r.sup)];return d&&d.items?d.items[r.h]:null}
+const recKey=b=>[b.fmt,norm(b.sku||b.valor),String(b.dcto),b.ini,b.fin].join('|');
+function consolidate(f){
+  // un registro por SKU + formato + fechas + descuento del mandato.
+  // De todas sus respuestas se toma una sola: prioridad ACTIVA SEGÚN MANDATO > CON OBSERVACIÓN > NO ACTIVA; a igual prioridad, la más reciente.
+  const keyOf=new Map(DATA.base.map(b=>[b.i,recKey(b)]));
+  const cand=new Map(),tot=new Map();
+  for(const e of DATA.evals){
+    if(e.bi<0||(f.fReg&&e.reg!==f.fReg)||(f.fMer&&e.mer!==f.fMer))continue;
+    const k=keyOf.get(e.bi);tot.set(k,(tot.get(k)||0)+1);
+    if(f.vig&&e.mom!=='VIGENTE')continue;
+    if(!cand.has(k))cand.set(k,[]);cand.get(k).push(e);
+  }
+  const seen=new Map();
+  for(const b of filtBase(f)){const k=recKey(b);if(!seen.has(k))seen.set(k,b)}
+  return [...seen].map(([k,b])=>{
+    const L=cand.get(k)||[];
+    let w=null;for(const e of L){if(!w||RANK[e.res]>RANK[w.res]||(RANK[e.res]===RANK[w.res]&&e.ejec>w.ejec))w=e}
+    const last=L.reduce((m,e)=>!m||e.ejec>m.ejec?e:m,null);
+    let st;
+    if(!w)st='SIN EVALUAR';
+    else if(w.res==='OK')st='VALIDADO - ACTIVO';
+    else if(w.res==='OBS')st=w.obsCat==='No codifica'?'VALIDADO - NO CODIFICA':'VALIDADO - ACTIVO CON OBSERVACION';
+    else st=w.obsCat==='No codifica'?'VALIDADO - NO CODIFICA':'VALIDADO - NO ACTIVA';
+    return {...b,k,st,w,res:w?w.res:null,nEval:L.length,evalTot:tot.get(k)||0,nPdv:new Set(L.map(e=>e.pdvId)).size,
+      d:w?w.d:'',fechaResp:w?w.ejec:'',pdv:w?w.pdv:'',pdvId:w?w.pdvId:'',mer:w?w.mer:'',obs:w?w.obs:'',obsCat:w?w.obsCat:'',foto:w?w.foto:'',mom:w?w.mom:'',
+      obsAll:L.filter(e=>e.obs&&e.obsCat!=='Sin detalle').map(e=>e.pdv+': '+e.obs).filter((v,i,a)=>a.indexOf(v)===i).join(' | '),
+      obsTipos:[...new Set(L.map(e=>e.obsCat).filter(c=>c&&c!=='Sin detalle'))].join(', '),h:hashKey(k)};
+  }).map(r=>{
+    if(!r.res)return r;
+    const v=valItem(r);r.stCampo=r.st;r.resCampo=r.res;r.val=v||null;r.nov=v&&v.nov||'';
+    r.valTxt=!v||!v.d?'PENDIENTE':v.d==='corr'?'CORREGIDO':'CONFIRMADO';
+    if(f.final&&v&&v.d==='corr'&&ST2RES[v.st]){r.st=v.st;r.res=ST2RES[v.st];if(v.st==='VALIDADO - NO CODIFICA')r.obsCat='No codifica'}
+    return r;
+  });
+}
+const stPill=s=>{const c=/NO ACTIVA|NO CODIFICA/.test(s)?'p-bad':/OBSERV/.test(s)?'p-warn':/ACTIVO/.test(s)?'p-ok':'p-mut';return `<span class="pill ${c}">${esc(s)}</span>`};
+const resPill=r=>r==='OK'?'<span class="pill p-ok">Activa</span>':r==='OBS'?'<span class="pill p-warn">Activa c/ obs.</span>':'<span class="pill p-bad">No activa</span>';
+const momPill=m=>m==='VIGENTE'?'<span class="pill p-ok">En vigencia</span>':m==='ANTES'?'<span class="pill p-mut">Antes del inicio</span>':m==='DESPUES'?'<span class="pill p-warn">Después del fin</span>':'<span class="pill p-bad">Sin mandato</span>';
+const FOTO_JUST='Política interna de la cadena';
+const tone=v=>v==null?'':v>=.9?'ok':v>=.75?'warn':'bad';
+
+/* ---------- render ---------- */
+function bars(el,rows,label){
+  rows.sort((a,b)=>(b.pa??0)-(a.pa??0));
+  $(el).innerHTML=rows.length?rows.map(a=>`<div class="bar"><span class="n" title="${esc(a.k)}">${esc(label?label(a):a.k)}</span><div class="track" title="${a.ok} activas · ${a.obs} con obs. · ${a.no} no activas"><i class="i-ok" style="width:${a.ok/a.n*100}%"></i><i class="i-obs" style="width:${a.obs/a.n*100}%"></i><i class="i-no" style="width:${a.no/a.n*100}%"></i></div><span class="p">${fp(a.pa)}</span></div>`).join(''):'<p class="small">Sin evaluaciones con este filtro.</p>';
+}
+function trend(E){
+  const a=agg(E,'d').sort((x,y)=>x.k<y.k?-1:1);
+  if(a.length<2){$('#cTrend').innerHTML='<p class="small">Se necesitan al menos dos días con visitas.</p>';$('#trendNote').textContent='';return}
+  const W=1100,H=230,L=40,R=12,T=14,Bm=34,mn=Math.min(.5,...a.map(x=>x.pa));
+  const lo=Math.floor(mn*10)/10;const x=i=>L+i*(W-L-R)/(a.length-1),y=v=>T+(1-(v-lo)/(1-lo))*(H-T-Bm);
+  let g='';for(let t=lo;t<=1.0001;t+=.1){g+=`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${L-6}" y="${y(t)+3}" text-anchor="end">${Math.round(t*100)}%</text>`}
+  const pts=a.map((d,i)=>`${x(i)},${y(d.pa)}`).join(' ');
+  const area=`${x(0)},${y(lo)} ${pts} ${x(a.length-1)},${y(lo)}`;
+  const step=Math.ceil(a.length/14);
+  const lab=a.map((d,i)=>i%step===0||i===a.length-1?`<text x="${x(i)}" y="${H-Bm+16}" text-anchor="middle">${d.k.slice(8)}/${d.k.slice(5,7)}</text>`:'').join('');
+  const dots=a.map((d,i)=>`<circle cx="${x(i)}" cy="${y(d.pa)}" r="${i===a.length-1?4.5:3}" fill="${d.pa<.75?'var(--bad)':'var(--sky)'}"><title>${d.k}: ${fp(d.pa)} (${d.n} promociones)</title></circle>`).join('');
+  $('#cTrend').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tendencia diaria de activación">${g}<polygon points="${area}" fill="var(--sky)" opacity=".15"/><polyline points="${pts}" fill="none" stroke="var(--sky)" stroke-width="2"/>${dots}${lab}</svg>`;
+  const worst=[...a].filter(d=>d.n>=10).sort((p,q)=>p.pa-q.pa)[0];
+  $('#trendNote').textContent=worst?`Día más bajo (≥10 promociones): ${worst.k} con ${fp(worst.pa)} sobre ${worst.n} promociones.`:'';
+}
+function heat(E){
+  const fm=[...new Set(E.map(e=>e.fmt))].sort(),ct=[...new Set(E.map(e=>e.cat))].sort();
+  const m=new Map(agg(E,e=>e.cat+'|'+e.fmt).map(a=>[a.k,a]));
+  const col=v=>v==null?'':v>=.9?'var(--okbg)':v>=.75?'var(--warnbg)':'var(--badbg)';
+  const tc=v=>v==null?'var(--muted)':v>=.9?'var(--ok)':v>=.75?'var(--warn)':'var(--bad)';
+  $('#tHeat').innerHTML=`<thead><tr><th>Categoría</th>${fm.map(f=>`<th class="num">${esc(f)}</th>`).join('')}</tr></thead><tbody>`+ct.map(c=>`<tr><td>${esc(c)}</td>${fm.map(f=>{const a=m.get(c+'|'+f);return `<td class="h" style="background:${col(a?.pa)};color:${tc(a?.pa)}" title="${a?a.n+' evaluaciones':'sin datos'}">${a?fp(a.pa):'·'}</td>`}).join('')}</tr>`).join('')+'</tbody>';
+}
+
+const TABS=[['act','Promociones del mes'],['noact','Promociones no activas'],['obs','Observaciones'],['fuera','Promos fuera de mandato'],['eval','Evaluaciones (detalle)']];
+let TBL={cols:[],rows:[]};
+function table(cols,rows,note){
+  TBL={cols,rows};
+  const q=norm($('#q').value);
+  let R=q?rows.filter(r=>norm(cols.map(c=>r[c.k]).join(' ')).includes(q)):rows.slice();
+  if(VIEW.sort){const {k,d}=VIEW.sort;R.sort((a,b)=>{const x=a[k],y=b[k];return (x>y?1:x<y?-1:0)*d})}
+  const shown=R.slice(0,1500);
+  $('#tDet').innerHTML=`<thead><tr>${cols.map(c=>`<th class="${c.num?'num':''}" data-k="${c.k}">${esc(c.t)}${VIEW.sort?.k===c.k?(VIEW.sort.d>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>${shown.map(r=>`<tr>${cols.map(c=>`<td class="${c.num?'num':''}">${c.h?c.h(r):esc(c.f?c.f(r[c.k]):r[c.k])}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  $('#detNote').textContent=(note?note+' · ':'')+`${fn(R.length)} filas`+(R.length>1500?' (se muestran 1.500; la exportación incluye todo)':'');
+}
+const momTxt={VIGENTE:'En vigencia',ANTES:'Antes del inicio',DESPUES:'Después del fin','SIN MANDATO':'Sin mandato'};
+function renderTab(f,E,EA,C){
+  const t=VIEW.tab;
+  if(t==='act')table([{k:'fmt',t:'Formato'},{k:'camp',t:'Campaña'},{k:'cat',t:'Categoría'},{k:'marca',t:'Marca'},{k:'valor',t:'Actividad'},{k:'ini',t:'Inicio'},{k:'fin',t:'Fin'},{k:'sup',t:'Supervisor'},{k:'nEval',t:'Respuestas',num:1},{k:'st',t:'Status',h:r=>stPill(r.st)},{k:'d',t:'Fecha resp.'},{k:'pdv',t:'PDV de la resp.'},{k:'obsAll',t:'Observaciones'},{k:'foto',t:'Foto',h:r=>fotoCell(r.foto)}],C.filter(r=>r.res),'Una fila por promoción (SKU + formato + fechas + descuento)');
+  else if(t==='noact'){const a=C.filter(r=>r.res==='NO');
+    table([{k:'fmt',t:'Formato'},{k:'cat',t:'Categoría'},{k:'marca',t:'Marca'},{k:'valor',t:'Actividad'},{k:'nEval',t:'Respuestas',num:1},{k:'nPdv',t:'PDV',num:1},{k:'d',t:'Última resp.'},{k:'obs',t:'Observación'},{k:'st',t:'Status',h:r=>stPill(r.st)}],a,'Promociones que no se encontraron activas en percha');}
+  else if(t==='obs'){const a=E.filter(e=>e.obs||e.res==='OBS');
+    table([{k:'d',t:'Fecha'},{k:'fmt',t:'Formato'},{k:'pdv',t:'PDV'},{k:'valor',t:'Actividad'},{k:'res',t:'Respuesta',h:r=>resPill(r.res)},{k:'obsCat',t:'Tipo'},{k:'obs',t:'Observación'},{k:'foto',t:'Foto',h:r=>fotoCell(r.foto)}],a,'Tipo clasificado por palabras clave del texto');}
+  else if(t==='fuera'){const a=DATA.fuera.filter(r=>!f.fReg||norm(r.reg)===f.fReg).map(r=>({d:r.ejec.slice(0,10),pdv:r.pdv,mer:r.mer,sec:r.sec,detalle:r.detalle}));
+    table([{k:'d',t:'Fecha'},{k:'pdv',t:'PDV'},{k:'sec',t:'Categoría'},{k:'detalle',t:'Promoción reportada'}],a,'Respuestas SI a "¿El PDV activó promoción fuera de mandato?"');}
+  else table([{k:'d',t:'Fecha'},{k:'fmt',t:'Formato'},{k:'pdv',t:'PDV'},{k:'ciudad',t:'Ciudad'},{k:'cat',t:'Categoría'},{k:'valor',t:'Actividad'},{k:'res',t:'Respuesta',h:r=>resPill(r.res)},{k:'obs',t:'Observación'},{k:'foto',t:'Foto',h:r=>fotoCell(r.foto)}],E,'Todas las respuestas en vigencia, sin consolidar');
+}
+
+function render(){
+  if(!DATA)return;
+  const f=F(),E=filtEvals(f),EA=filtEvals(f,true),C=consolidate(f);
+  const R=C.filter(r=>r.res);           // registros con respuesta considerada
+  const t=agg(R,()=>'t')[0]||{n:0,ok:0,obs:0,no:0,pa:null,pf:null,pdv:new Set(),act:0,foto:0};
+  const actD=R.filter(r=>r.res!=='NO'&&typeof r.dcto==='number'&&r.dcto>0),nD=actD.length,avgD=nD?actD.reduce((s,r)=>s+r.dcto,0)/nD:null;
+  const nObs=E.filter(e=>e.obs&&e.obsCat!=='Sin detalle').length,codE=E.filter(e=>e.obsCat==='No codifica'),codS=new Set(codE.map(e=>e.fmt+'|'+e.sku)).size;
+  const k=[
+    {l:'% activación de promociones',v:fp(t.pa),s:`${fn(t.ok+t.obs)} de ${fn(t.n)} promociones auditadas`,c:tone(t.pa),hero:1},
+    {l:'Promociones no activas',v:fn(t.no),s:`${fp(pct(t.no,t.n))} de lo evaluado`,c:t.no?'bad':'',dr:'no'},
+    {l:'Activas con observación',v:fn(t.obs),s:'precio, % o vigencia distinta',dr:'obs'},
+    {l:'Descuento promedio activo',v:avgD==null?'—':(avgD*100).toFixed(1)+'%',s:`en ${fn(nD)} promociones activas con %`},
+    {l:'Observaciones',v:fn(nObs),s:`en ${fn(R.filter(r=>r.obsAll).length)} promociones`,dr:'obsall'},
+    {l:'No codifica',v:fn(codS),s:`SKU-formato en ${fn(new Set(codE.map(e=>e.pdvId)).size)} PDV`,c:codS?'bad':'',dr:'cod'},
+  ];
+  const goTxt={no:'Ver SKUs no activos',obs:'Ver cuáles',obsall:'Ver observaciones',cod:'Ver SKUs'};
+  $('#kpis').innerHTML=k.map(x=>x.dr?`<button type="button" class="kpi click${VIEW.drill===x.dr?' sel':''}" data-dr="${x.dr}"><div class="l">${x.l}</div><div class="v ${x.c||''}">${x.v}</div><div class="s">${x.s}</div><div class="go">${VIEW.drill===x.dr?'Ocultar':goTxt[x.dr]} ›</div></button>`:`<div class="kpi${x.hero?' hero':''}"><div class="l">${x.l}</div><div class="v ${x.c||''}">${x.v}</div><div class="s">${x.s}</div></div>`).join('');
+  kpiDrill(E,R);
+  $('#kpiNote').textContent='Cada promoción del mandato del mes (SKU + formato + fechas + descuento) se cuenta una vez, con su auditoría en percha dentro de la vigencia.';
+  const aF=agg(R,'fmt'),aC=agg(R,'cat');
+  bars('#cFmt',aF,a=>`${a.k} (${a.n})`);bars('#cCat',aC,a=>`${a.k}`);bars('#cCamp',agg(R,'camp'),a=>`${a.k} (${a.n})`);
+  obsPanels(E);
+  trend(R);heat(R);
+  insights(f,E,R,aF,aC,t);obsRegTable(C);
+  $('#tabs').innerHTML=TABS.map(([id,n])=>`<button type="button" class="tab${VIEW.tab===id?' on':''}" data-t="${id}">${n}</button>`).join('');
+  renderTab(f,E,EA,C);
+  const m=DATA.meta;$('#subtitle').textContent=`${m.sheet||'Mandato'} · ${m.ans} · actualizado ${m.loaded}`;
+  $('#foot').textContent=`Mandato: ${m.base} (${fn(DATA.base.length)} filas) · Campo: ${m.ans} (${fn(DATA.evals.length)} respuestas de actividad)`+(DATA.sinMatch.length?` · ${DATA.sinMatch.reduce((s,x)=>s+x.n,0)} respuestas sin registro equivalente en el mandato`:'');
+}
+function obsPanels(E){
+  const o=E.filter(e=>e.obs&&e.obsCat!=='Sin detalle');const c=new Map();o.forEach(e=>c.set(e.obsCat,(c.get(e.obsCat)||0)+1));
+  const mx=Math.max(1,...c.values());
+  $('#cObs').innerHTML=c.size?'<div class="bars">'+[...c].sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<button type="button" class="bar barbtn${VIEW.obsSel===k?' sel':''}" data-oc="${esc(k)}" title="Ver detalle de ${esc(k)}"><span class="n">${esc(k)}</span><div class="track"><i style="width:${n/mx*100}%;background:${k==='No codifica'?'var(--bad)':/^Vigencia/.test(k)?'var(--warn)':'var(--sky)'}"></i></div><span class="p">${n}</span></button>`).join('')+'</div>':'<p class="small">Sin observaciones con este filtro.</p>';
+  obsDetail(o);
+  const cod=E.filter(e=>e.obsCat==='No codifica');
+  const fmts=[...new Set(cod.map(e=>e.fmt))].sort();
+  $('#codAcc').innerHTML=fmts.length?fmts.map(fm=>{
+    const L=cod.filter(e=>e.fmt===fm),open=VIEW.codOpen.has(fm);
+    const pdvs=[...new Set(L.map(e=>e.pdv))].sort();
+    const head=`<button type="button" class="acch" data-cf="${esc(fm)}" aria-expanded="${open}"><span><b>${esc(fm)}</b><span class="m">${new Set(L.map(e=>e.sku)).size} SKU · ${pdvs.length} PDV</span></span><span class="ar">${open?'Ocultar PDV ▴':'Ver PDV ▾'}</span></button>`;
+    if(!open)return head;
+    const rows=pdvs.map(pv=>{const P=L.filter(e=>e.pdv===pv);return `<tr><td><b>${esc(pv)}</b><div class="small">${esc(P[0].ciudad||'')}</div></td><td><ul class="skulist">${P.map(e=>`<li>${esc(e.sku)} <span class="small">· ${typeof e.dcto==='number'?(e.dcto*100).toFixed(0)+'% · ':''}${e.ini?dmy(e.ini)+' al '+dmy(e.fin):''}</span> ${resPill(e.res)}</li>`).join('')}</ul></td><td style="white-space:nowrap">${[...new Set(P.map(e=>dmy(e.d)))].join(', ')}</td><td>${(()=>{const f=P.find(e=>e.foto);return fotoCell(f?f.foto:'')})()}</td></tr>`}).join('');
+    return head+`<div class="accb"><div class="tw" style="max-height:none"><table><thead><tr><th>PDV</th><th>SKU · descuento · vigencia del mandato</th><th>Fecha visita</th><th>Foto</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }).join(''):'<p class="small">Ninguna observación indica producto no codificado con este filtro.</p>';
+  const g=new Set(cod.map(e=>e.fmt+'|'+e.sku));
+  $('#codNote').textContent=cod.length?`${g.size} SKU-formato en ${new Set(cod.map(e=>e.pdvId)).size} PDV, según observaciones que mencionan que el producto no está codificado. Presiona un formato para ver los PDV.`:'Ninguna observación indica producto no codificado.';
+}
+function fotoCell(u){
+  if(!u)return `<span class="pill p-mut" title="La cadena no permite tomar fotos en percha">Sin foto · ${FOTO_JUST}</span>`;
+  return `<div class="thumb"><img src="${esc(u)}" loading="lazy" alt="Foto en percha" data-lb="${esc(u)}" onerror="this.style.display='none'"><a href="${esc(u)}" target="_blank" rel="noopener">Ver grande ↗</a></div>`;
+}
+function drillRender(tblSel,L,cols){
+  $(tblSel).innerHTML=L.length?`<thead><tr>${cols.map(c=>`<th class="${c[2]?'num':''}">${c[1]}</th>`).join('')}</tr></thead><tbody>${L.map(r=>`<tr>${cols.map(c=>`<td class="${c[2]?'num':''}" style="${['vig','d'].includes(c[0])?'white-space:nowrap':''}">${c[3]?c[3](r):esc(r[c[0]])}</td>`).join('')}</tr>`).join('')}</tbody>`:'<tbody><tr><td class="small">Sin casos con este filtro.</td></tr></tbody>';
+}
+const DCOL={fmt:['fmt','Formato'],cat:['cat','Categoría'],marca:['marca','Marca'],sku:['sku','Producto'],dcto:['dcto','Descuento',1,r=>typeof r.dcto==='number'?(r.dcto*100).toFixed(0)+'%':esc(r.dcto??'')],
+  vig:['vig','Vigencia del mandato',0,r=>r.ini?`${dmy(r.ini)} al ${dmy(r.fin)}`:'—'],pdv:['pdv','PDV'],d:['d','Fecha visita',0,r=>dmy(r.d)],mer:['mer','Mercaderista'],res:['res','Respuesta',0,r=>resPill(r.res)],
+  motivo:['motivo','Motivo',0,r=>{const m=r.obsCat==='No codifica'?['No codifica','p-bad']:/agotado/i.test(r.obsCat||'')?['Agotado / no presente','p-warn']:r.obsCat&&r.obsCat!=='Sin detalle'?[r.obsCat,'p-mut']:['Sin motivo indicado','p-mut'];return `<span class="pill ${m[1]}">${esc(m[0])}</span>`}],
+  tipo:['obsCat','Tipo'],obs:['obs','Observación'],foto:['foto','Foto',0,r=>fotoCell(r.foto)]};
+function kpiDrill(E,R){
+  const k=VIEW.drill,sec=$('#kpiDetSec');if(!k){sec.hidden=true;return}
+  const srt=L=>L.sort((a,b)=>(a.fmt+a.cat+a.sku)<(b.fmt+b.cat+b.sku)?-1:1);
+  let L,cols,title;const C=DCOL;
+  if(k==='no'){L=srt(R.filter(r=>r.res==='NO'));cols=[C.fmt,C.cat,C.marca,C.sku,C.dcto,C.vig,C.pdv,C.d,C.motivo,C.obs];title=`Promociones no activas · ${L.length} SKU-promoción`}
+  else if(k==='obs'){L=srt(R.filter(r=>r.res==='OBS'));cols=[C.fmt,C.cat,C.sku,C.dcto,C.vig,C.pdv,C.d,C.tipo,C.obs,C.foto];title=`Activas con observación · ${L.length}`}
+  else if(k==='obsall'){L=srt(E.filter(e=>e.obs&&e.obsCat!=='Sin detalle'));cols=[C.fmt,C.sku,C.vig,C.pdv,C.d,C.res,C.tipo,C.obs,C.foto];title=`Observaciones de campo · ${L.length}`}
+  else {L=srt(E.filter(e=>e.obsCat==='No codifica'));cols=[C.fmt,C.cat,C.marca,C.sku,C.dcto,C.vig,C.pdv,C.d,C.res,C.obs];title=`SKUs que no codifican · ${L.length} caso(s)`}
+  sec.hidden=false;$('#kpiDetTitle').textContent=title;drillRender('#tKpiDet',L,cols);
+}
+function obsDetail(o){
+  const k=VIEW.obsSel,sec=$('#obsDetSec');
+  if(!k){sec.hidden=true;return}
+  const L=o.filter(e=>e.obsCat===k).sort((a,b)=>(a.fmt+a.sku+a.d)<(b.fmt+b.sku+b.d)?-1:1);
+  sec.hidden=false;$('#obsDetTitle').textContent=`${k} · ${L.length} caso(s) en ${new Set(L.map(e=>e.fmt+'|'+e.sku)).size} producto(s)`;
+  const cols=[['fmt','Formato'],['sku','Producto'],['dcto','Descuento',1,r=>r.dcto===''||r.dcto==null?'':(typeof r.dcto==='number'?(r.dcto*100).toFixed(0)+'%':esc(r.dcto))],['vig','Vigencia del mandato',0,r=>r.ini?`${dmy(r.ini)} al ${dmy(r.fin)}`:'—'],['pdv','PDV'],['d','Fecha de visita',0,r=>dmy(r.d)],['res','Respuesta',0,r=>resPill(r.res)],['obs','Observación'],['foto','Foto',0,r=>fotoCell(r.foto)]];
+  $('#tObsDet').innerHTML=`<thead><tr>${cols.map(c=>`<th class="${c[2]?'num':''}">${c[1]}</th>`).join('')}</tr></thead><tbody>${L.map(r=>`<tr>${cols.map(c=>`<td class="${c[2]?'num':''}" style="${c[0]==='vig'||c[0]==='d'?'white-space:nowrap':''}">${c[3]?c[3](r):esc(r[c[0]])}</td>`).join('')}</tr>`).join('')}</tbody>`;
+}
+function obsRegTable(C){
+  const rows=C.filter(r=>r.obsAll);
+  const cols=[['fmt','Formato'],['cat','Categoría'],['valor','Actividad'],['st','Status',0,r=>stPill(r.st)],['obsTipos','Tipo'],['obsAll','Observaciones (PDV: texto)']];
+  $('#tObsReg').innerHTML=rows.length?`<thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${c[3]?c[3](r):esc(r[c[0]])}</td>`).join('')}</tr>`).join('')}</tbody>`:'<tbody><tr><td class="small">Sin observaciones con este filtro.</td></tr></tbody>';
+}
+function tipTable(title,rows,note){
+  return `<div class="tip" role="tooltip">${title?`<div class="tt">${esc(title)}</div>`:''}<table>${rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table>${note?`<div class="tn">${esc(note)}</div>`:''}</div>`;
+}
+const actTxt=a=>`${fp(a.pa)} · ${fn(a.ok+a.obs)}/${fn(a.n)}`;
+function insights(f,E,R,aF,aC,t){
+  const T=[];const fmtSel=f.fFmt;
+  if(!t.n){$('#insights').innerHTML='<p class="small">Sin promociones auditadas con este filtro.</p>';return}
+  $('#hallTitle').textContent=fmtSel?`Hallazgos clave · ${fmtSel}`:'Hallazgos clave';
+  const byPa=(a,b)=>(b.pa-a.pa)||(b.n-a.n);
+  // 1. activación general
+  T.push({c:tone(t.pa),l:fmtSel?`Activación ${fmtSel}`:'Activación del mandato',v:fp(t.pa),s:`${fn(t.ok+t.obs)} de ${fn(t.n)} promociones`,
+    tip:tipTable('Resultado de la auditoría',[['Activa según mandato',fn(t.ok)],['Activa con observación',fn(t.obs)],['No activa',fn(t.no)]])});
+  // 2. campañas
+  const aCp=agg(R,'camp').filter(x=>x.k).sort(byPa);
+  if(fmtSel){
+    aCp.forEach(x=>{const L=R.filter(r=>r.camp===x.k);const cats=agg(L,'cat').sort(byPa);const no=L.filter(r=>r.res==='NO');
+      T.push({c:tone(x.pa),l:`Campaña ${x.k}`,v:fp(x.pa),s:`${fn(x.ok+x.obs)} de ${fn(x.n)} promociones`,
+        tip:tipTable(`${x.k} en ${fmtSel} por categoría`,cats.map(c=>[c.k,actTxt(c)]),no.length?'No activas: '+no.slice(0,6).map(r=>r.sku).join('; ')+(no.length>6?'…':''):'Todas las promociones de la campaña activas.')})});
+  }else if(aCp.length){
+    const top=aCp[0],low=aCp[aCp.length-1];
+    T.push({c:'ok',l:'Campaña con mayor activación',v:fp(top.pa),s:top.k,tip:tipTable('Activación por campaña',aCp.map(x=>[x.k,actTxt(x)]))});
+    if(aCp.length>1&&low.pa<top.pa)T.push({c:low.pa<.9?'bad':'warn',l:'Campaña con menor activación',v:fp(low.pa),s:low.k,
+      tip:tipTable(`${low.k} por formato`,agg(R.filter(r=>r.camp===low.k),'fmt').sort(byPa).map(x=>[x.k,actTxt(x)]),`${fn(low.no)} promociones no activas`)});
+  }
+  // 3. formatos (solo vista general)
+  if(!fmtSel&&aF.length>1){const s2=aF.filter(x=>x.n>=10).sort(byPa);if(s2.length>1){
+    const hi=s2[0],lo=s2[s2.length-1];const allF=tipTable('Activación por formato',[...aF].sort(byPa).map(x=>[x.k,actTxt(x)]));
+    T.push({c:'ok',l:'Formato con mayor activación',v:fp(hi.pa),s:hi.k,tip:allF});
+    if(lo.pa<hi.pa)T.push({c:lo.pa<.9?'bad':'warn',l:'Formato con menor activación',v:fp(lo.pa),s:lo.k,
+      tip:tipTable(`${lo.k} por campaña`,agg(R.filter(r=>r.fmt===lo.k),'camp').sort(byPa).map(x=>[x.k,actTxt(x)]),`${fn(lo.no)} promociones no activas`)});}}
+  // 4. categoría más baja
+  {const s2=aC.filter(x=>x.n>=(fmtSel?5:10)).sort(byPa);const lo=s2[s2.length-1];
+    if(lo&&lo.pa<1)T.push({c:lo.pa<.9?'bad':'warn',l:'Categoría a reforzar',v:fp(lo.pa),s:lo.k,tip:tipTable('Activación por categoría',[...aC].sort(byPa).map(x=>[x.k,actTxt(x)]))});
+    else if(s2.length)T.push({c:'ok',l:'Categorías al 100%',v:fn(s2.filter(x=>x.pa===1).length),s:'todas las categorías activas',tip:tipTable('Activación por categoría',[...aC].sort(byPa).map(x=>[x.k,actTxt(x)]))});}
+  // 5. marcas 100%
+  {const a=agg(R,'marca').filter(x=>x.k&&x.n>=(fmtSel?3:5));const full=a.filter(x=>x.pa===1).sort((x,y)=>y.n-x.n);const part=a.filter(x=>x.pa<1).sort((x,y)=>x.pa-y.pa);
+    if(a.length)T.push({c:'ok',l:'Marcas con 100% de activación',v:`${full.length} de ${a.length}`,s:full.slice(0,3).map(x=>x.k).join(', ')+(full.length>3?'…':''),
+      tip:tipTable('Marcas al 100%',full.map(x=>[x.k,`${x.n} promociones`]),part.length?'Por debajo del 100%: '+part.slice(0,6).map(x=>`${x.k} ${fp(x.pa)}`).join(' · '):'')});}
+  // 6. descuento
+  {const g=new Map();R.filter(r=>r.res!=='NO'&&typeof r.dcto==='number'&&r.dcto>0).forEach(r=>{if(!g.has(r.cat))g.set(r.cat,[]);g.get(r.cat).push(r.dcto)});
+    const all=[...g.values()].flat();const a=[...g].map(([k,v])=>[k,v.reduce((s,x)=>s+x,0)/v.length,v.length]).sort((x,y)=>y[1]-x[1]);
+    if(all.length)T.push({c:'',l:'Descuento promedio activo',v:(all.reduce((s,x)=>s+x,0)/all.length*100).toFixed(1)+'%',s:a[0]?`mayor en ${a[0][0]}`:'',
+      tip:tipTable('Descuento promedio por categoría',a.map(x=>[x[0],`${(x[1]*100).toFixed(1)}% · ${x[2]}`]))});}
+  // 7. no activas por motivo
+  {const no=R.filter(r=>r.res==='NO');if(no.length){const mot=new Map();no.forEach(r=>{const m=r.obsCat==='No codifica'?'No codifica':/agotado/i.test(r.obsCat||'')?'Agotado / no presente':r.obsCat&&r.obsCat!=='Sin detalle'?r.obsCat:'Sin motivo indicado';mot.set(m,(mot.get(m)||0)+1)});
+    const top=[...mot].sort((a,b)=>b[1]-a[1]);
+    T.push({c:'bad',l:'Promociones no activas',v:fn(no.length),s:`principal motivo: ${top[0][0]} (${top[0][1]})`,tip:tipTable('No activas por motivo',top.map(x=>[x[0],fn(x[1])]),(!fmtSel?'Por formato: '+agg(no,'fmt').sort((a,b)=>b.n-a.n).map(x=>`${x.k} ${x.n}`).join(' · '):'SKU: '+no.slice(0,6).map(r=>r.sku).join('; ')+(no.length>6?'…':'')))});}}
+  // 8. no codifica
+  {const c=E.filter(e=>e.obsCat==='No codifica');if(c.length){const sk=new Set(c.map(e=>e.fmt+'|'+e.sku));
+    T.push({c:'bad',l:'SKU que no codifican',v:fn(sk.size),s:`en ${fn(new Set(c.map(e=>e.pdvId)).size)} PDV`,tip:tipTable('No codifica por formato',agg(c,'fmt').map(x=>[x.k,`${new Set(c.filter(e=>e.fmt===x.k).map(e=>e.sku)).size} SKU · ${x.pdv.size} PDV`]),'Marcas: '+[...new Set(c.map(e=>e.marca))].join(', '))});}}
+  // 9. observaciones
+  {const o=E.filter(e=>e.obsCat&&e.obsCat!=='Sin detalle');if(o.length){const m=new Map();o.forEach(e=>m.set(e.obsCat,(m.get(e.obsCat)||0)+1));const top=[...m].sort((a,b)=>b[1]-a[1]);
+    T.push({c:'warn',l:'Observaciones de campo',v:fn(o.length),s:`más frecuente: ${top[0][0]}`,tip:tipTable('Observaciones por tipo',top.map(x=>[x[0],fn(x[1])]))});}}
+  // 10. fuera de mandato
+  {const fu=DATA.fuera.filter(r=>!fmtSel||fmtFromForm(r.form,r.fmtPdv)===fmtSel);if(fu.length)T.push({c:'',l:'Promociones fuera de mandato',v:fn(fu.length),s:'reportadas por el PDV',tip:tipTable('Detalle reportado',fu.map(r=>[r.pdv.replace(/ \/ UL$/,''),'']),fu.map(r=>r.detalle).filter(Boolean).join(' · '))});}
+  {const sups=supList();if(sups.length&&DB_OK){const sent=sups.filter(x=>x.estado==='ENVIADO');
+    T.push({c:sent.length===sups.length?'ok':'warn',l:'Validación de supervisores',v:`${sent.length} de ${sups.length}`,s:'supervisores enviaron',tip:tipTable('Estado por supervisor',sups.map(x=>[x.sup,x.estado==='ENVIADO'?'Enviado '+fdt(x.at):x.estado==='EN PROCESO'?`En proceso · ${x.nVal}/${x.n}`:'Sin iniciar']))});
+    const cor=R.filter(r=>r.val&&r.val.d==='corr'),nov=R.filter(r=>r.nov);
+    if(cor.length||nov.length)T.push({c:'',l:'Correcciones del supervisor',v:fn(cor.length),s:`${fn(nov.length)} novedades registradas`+(f.final?'':' · no aplicadas'),tip:tipTable('Correcciones por formato',agg(cor,'fmt').map(x=>[x.k,fn(x.n)]),cor.slice(0,5).map(r=>`${r.sku}: ${r.stCampo.replace('VALIDADO - ','')} → ${r.val.st.replace('VALIDADO - ','')}`).join(' · '))});}}
+  $('#insights').innerHTML=T.map(x=>`<div class="ins ${x.c||''}" tabindex="0"><div class="il">${esc(x.l)}</div><div class="iv">${esc(x.v)}</div><div class="is">${esc(x.s||'')}</div><div class="ih">Ver detalle ⓘ</div>${x.tip}</div>`).join('');
+}
+
+/* ---------- exportación con formato de tabla ---------- */
+async function exportXlsx(){
+  if(!window.ExcelJS){status('No se cargó la librería de Excel (revisa tu conexión a internet).');return}
+  const f=F(),E=filtEvals(f),EA=filtEvals(f,true),C=consolidate(f),R=C.filter(r=>r.res);
+  const wb=new ExcelJS.Workbook();wb.creator='Eficacia';
+  const add=(name,cols,rows)=>{
+    const ws=wb.addWorksheet(name.slice(0,31),{views:[{state:'frozen',ySplit:1}]});
+    if(!rows.length)rows=[Object.fromEntries(cols.map(c=>[c.k,'']))];
+    ws.addTable({name:name.replace(/[^A-Za-z]/g,'').slice(0,20)||'T',ref:'A1',headerRow:true,style:{theme:'TableStyleMedium2',showRowStripes:true},
+      columns:cols.map(c=>({name:c.t,filterButton:true})),rows:rows.map(r=>cols.map(c=>{let v=r[c.k];if(c.date&&v)return new Date(v+'T00:00:00');return v==null?'':v}))});
+    cols.forEach((c,i)=>{const col=ws.getColumn(i+1);col.width=c.w||Math.min(60,Math.max(10,c.t.length+2));if(c.pct)col.numFmt='0.0%';if(c.date)col.numFmt='dd/mm/yyyy'});
+    const h=ws.getRow(1);h.eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF002060'}};cell.font={bold:true,color:{argb:'FFFFFFFF'}};cell.alignment={vertical:'middle',wrapText:true}});h.height=30;
+    return ws;
+  };
+  const resT=r=>r==='OK'?'ACTIVA SEGÚN MANDATO':r==='OBS'?'ACTIVA CON OBSERVACIÓN':r==='NO'?'NO ACTIVA':'';
+  const ws1=add('BASE CON STATUS',[{k:'fmt',t:'FORMATO'},{k:'cadena',t:'CADENA'},{k:'camp',t:'CAMPAÑA'},{k:'mec',t:'MECANICA'},{k:'cat',t:'CATEGORIA'},{k:'marca',t:'MARCA'},{k:'sku',t:'SKU',w:42},{k:'dcto',t:'% DCTO',pct:1},{k:'ini',t:'FECHA IMPLEMENTACION',date:1},{k:'fin',t:'FECHA TERMINACION',date:1},{k:'sup',t:'SUPERVISOR',w:20},{k:'valor',t:'VALOR',w:60},{k:'nEval',t:'RESPUESTAS'},{k:'resT',t:'RESPUESTA TOMADA',w:24},{k:'st',t:'STATUS',w:34},{k:'d',t:'FECHA RESPUESTA',date:1},{k:'pdv',t:'PDV RESPUESTA',w:28},{k:'obsTipos',t:'TIPO OBSERVACION',w:26},{k:'obsAll',t:'OBSERVACIONES / MERCADERISTA',w:60},{k:'foto',t:'FOTO',w:30},{k:'fj',t:'JUSTIFICACION FOTO',w:30},{k:'stCampo',t:'STATUS CAMPO',w:34},{k:'valTxt',t:'VALIDACION SUPERVISOR',w:22},{k:'nov',t:'NOVEDAD SUPERVISOR',w:50},{k:'valAt',t:'FECHA VALIDACION',w:18}],C.map(r=>({...r,valAt:r.val&&r.val.at?fdt(r.val.at):'',stCampo:r.res?r.stCampo:'',valTxt:r.res?r.valTxt:'',fj:r.res&&r.res!=='NO'&&!r.foto?FOTO_JUST:'',st:r.res?r.st:'',resT:resT(r.res)})));
+  [15,22].forEach(ci=>ws1.getColumn(ci).eachCell((c,i)=>{if(i===1)return;const v=String(c.value);const col=/NO ACTIVA|NO CODIFICA/.test(v)?'FFFBE5E3':/OBSERV/.test(v)?'FFFDF1DA':/ACTIVO/.test(v)?'FFE3F4EC':null;if(col)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:col}}}));
+  add('EVALUACIONES',[{k:'d',t:'FECHA',date:1},{k:'fmt',t:'FORMATO'},{k:'pdv',t:'PDV',w:30},{k:'ciudad',t:'CIUDAD'},{k:'reg',t:'REGIONAL'},{k:'cat',t:'CATEGORIA'},{k:'marca',t:'MARCA'},{k:'camp',t:'CAMPAÑA'},{k:'valor',t:'ACTIVIDAD',w:60},{k:'resT',t:'RESPUESTA',w:22},{k:'obs',t:'OBSERVACION',w:40},{k:'obsCat',t:'TIPO OBSERVACION',w:26},{k:'foto',t:'FOTO',w:30},{k:'fj',t:'JUSTIFICACION FOTO',w:30}],
+    E.map(e=>({...e,fj:e.foto?'':FOTO_JUST,resT:e.res==='OK'?'ACTIVA SEGÚN MANDATO':e.res==='OBS'?'ACTIVA CON OBSERVACIÓN':'NO ACTIVA',momT:{VIGENTE:'EN VIGENCIA',ANTES:'ANTES DEL INICIO',DESPUES:'DESPUÉS DEL FIN','SIN MANDATO':'SIN MANDATO'}[e.mom]})));
+  const sum=(key,label,src=R)=>agg(src,key).sort((a,b)=>b.n-a.n).map(a=>({k:a.k,n:a.n,ok:a.ok,obs:a.obs,no:a.no,pa:a.pa,pf:a.pf,pdv:a.pdv.size}));
+  const sc=lab=>[{k:'k',t:lab,w:30},{k:'n',t:'REGISTROS / RESPUESTAS'},{k:'ok',t:'ACTIVA SEGÚN MANDATO'},{k:'obs',t:'ACTIVA CON OBSERVACIÓN'},{k:'no',t:'NO ACTIVA'},{k:'pa',t:'% ACTIVACION',pct:1},{k:'pdv',t:'PDV'}];
+  add('RESUMEN FORMATO',sc('FORMATO'),sum('fmt'));add('RESUMEN CATEGORIA',sc('CATEGORIA'),sum('cat'));add('RESUMEN CAMPAÑA',sc('CAMPAÑA'),sum('camp'));
+  add('NO CODIFICA',[{k:'d',t:'FECHA VISITA',date:1},{k:'fmt',t:'FORMATO'},{k:'pdv',t:'PDV',w:30},{k:'cat',t:'CATEGORIA'},{k:'marca',t:'MARCA'},{k:'sku',t:'SKU',w:42},{k:'ini',t:'INICIO MANDATO',date:1},{k:'fin',t:'FIN MANDATO',date:1},{k:'obs',t:'OBSERVACION',w:50}],E.filter(e=>e.obsCat==='No codifica'));
+  add('OBSERVACIONES',[{k:'d',t:'FECHA VISITA',date:1},{k:'fmt',t:'FORMATO'},{k:'pdv',t:'PDV',w:30},{k:'cat',t:'CATEGORIA'},{k:'sku',t:'SKU',w:42},{k:'ini',t:'INICIO MANDATO',date:1},{k:'fin',t:'FIN MANDATO',date:1},{k:'obsCat',t:'TIPO',w:26},{k:'obs',t:'OBSERVACION',w:60},{k:'foto',t:'FOTO',w:30},{k:'fj',t:'JUSTIFICACION FOTO',w:30}],E.filter(e=>e.obs&&e.obsCat!=='Sin detalle').map(e=>({...e,fj:e.foto?'':FOTO_JUST})));
+  if(DATA.fuera.length)add('FUERA DE MANDATO',[{k:'d',t:'FECHA',date:1},{k:'pdv',t:'PDV',w:30},{k:'sec',t:'CATEGORIA'},{k:'detalle',t:'PROMOCION REPORTADA',w:60}],DATA.fuera.map(r=>({...r,d:r.ejec.slice(0,10)})));
+  {const sups=supList();if(sups.length){
+    add('RECEPCION SUPERVISORES',[{k:'sup',t:'SUPERVISOR',w:24},{k:'fmts',t:'FORMATO',w:18},{k:'n',t:'PROMOCIONES'},{k:'nVal',t:'VALIDADAS'},{k:'pend',t:'PENDIENTES'},{k:'nCorr',t:'CORREGIDAS'},{k:'nNov',t:'NOVEDADES'},{k:'estado',t:'ESTADO',w:16},{k:'atT',t:'FECHA ENVIO',w:18}],sups.map(x=>({...x,pend:x.n-x.nVal,atT:x.estado==='ENVIADO'?fdt(x.at):''})));
+    add('NOVEDADES SUPERVISORES',[{k:'sup',t:'SUPERVISOR',w:24},{k:'fmt',t:'FORMATO'},{k:'camp',t:'CAMPAÑA'},{k:'cat',t:'CATEGORIA'},{k:'sku',t:'SKU',w:42},{k:'pdv',t:'PDV',w:28},{k:'stCampo',t:'STATUS CAMPO',w:34},{k:'valTxt',t:'VALIDACION',w:16},{k:'stFin',t:'STATUS FINAL',w:34},{k:'nov',t:'NOVEDAD',w:60},{k:'valAt',t:'FECHA',w:18}],
+      novRows().map(r=>({...r,stFin:r.val&&r.val.d==='corr'?r.val.st:r.stCampo,valAt:r.val&&r.val.at?fdt(r.val.at):''})));}}
+  const buf=await wb.xlsx.writeBuffer();
+  const fname=`INSIGHTS ACTIVACION MANDATO - ${mesKey()}${f.final?' - FINAL':''}.xlsx`;
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(CAP.dl){try{await CAP.dl.save({filename:fname,data:blob});status('Excel exportado con los filtros actuales.')}catch(e){status(e.code==='declined'?'Descarga cancelada.':'No se pudo descargar el Excel en esta vista ('+e.code+').')}return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=fname;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+  status('Excel exportado con los filtros actuales.');
+}
+
+/* ---------- persistencia (IndexedDB) ---------- */
+const DB={open(){return new Promise((res,rej)=>{const r=indexedDB.open('mandato_insights',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+  async get(k){try{const d=await this.open();return await new Promise(r=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)})}catch(e){return null}},
+  async set(k,v){try{const d=await this.open();d.transaction('kv','readwrite').objectStore('kv').put(v,k)}catch(e){}},
+  async del(k){try{const d=await this.open();d.transaction('kv','readwrite').objectStore('kv').delete(k)}catch(e){}}};
+
+/* ---------- carga de archivos ---------- */
+let RAW={base:null,ans:null,meta:{}};const LOADED=new Set();let SHOWLOAD=false;
+function readFile(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);if(/\.csv$/i.test(file.name))r.readAsText(file,'utf-8');else r.readAsArrayBuffer(file)})}
+async function loadBase(file){
+  status('Leyendo mandato…');const buf=await readFile(file);
+  const wb=XLSX.read(buf,{type:'array',cellDates:true});
+  const sn=wb.SheetNames.find(n=>/^BASE DE DATOS/i.test(n.trim()))||wb.SheetNames.find(n=>/BASE/i.test(n));
+  if(!sn)throw new Error('No encontré una pestaña "BASE DE DATOS - mes" en '+file.name);
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+  const h=rows.findIndex(r=>r.some(c=>norm(c)==='VALOR')&&r.some(c=>norm(c)==='FORMATO'));
+  if(h<0)throw new Error('La pestaña '+sn+' no tiene encabezados VALOR y FORMATO.');
+  LOADED.add('base');RAW.base=baseFromRows(rows[h],rows.slice(h+1));RAW.meta.base=file.name;RAW.meta.sheet=sn;$('#nBase').textContent=file.name+' · '+sn;
+}
+async function loadAns(file){
+  status('Leyendo ingresos de campo…');const d=await readFile(file);
+  const wb=typeof d==='string'?XLSX.read(d,{type:'string',raw:true}):XLSX.read(d,{type:'array',raw:true});
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false});
+  LOADED.add('ans');RAW.ans=ansFromRows(rows[0],rows.slice(1));RAW.meta.ans=file.name;$('#nAns').textContent=file.name+' · '+fn(RAW.ans.length)+' filas';
+}
+async function rebuild(save){
+  if(!RAW.base||!RAW.ans){status('Falta cargar '+(!RAW.base?'el archivo de mandato':'el Answer')+'.');return}
+  RAW.meta.loaded=new Date().toLocaleDateString('es-EC');
+  const art=!!(CAP.art&&CAP.owner);
+  useRaw(RAW,!art);
+  if(!save)return;
+  if(art){
+    if(LOADED.size>=2)await publishMes();
+    else{$('#bSaveNow').hidden=false;$('#loadHint').textContent=`Cargaste ${[...LOADED][0]==='base'?'el mandato':'el Answer'}. Sube también ${[...LOADED][0]==='base'?'el Answer':'el mandato'} para guardar, o guarda solo con este archivo.`;status('Vista previa lista, aún sin guardar en el enlace.')}
+  }else{await DB.set('raw',RAW);status(`Listo: ${fn(DATA.evals.length)} evaluaciones cruzadas. Quedó guardado en este navegador.`)}
+}
+function bindDrop(lbl,inp,fn2){
+  inp.addEventListener('change',async()=>{if(!inp.files[0])return;try{await fn2(inp.files[0]);await rebuild(true)}catch(e){status('Error: '+e.message)}inp.value=''});
+  ['dragover','dragenter'].forEach(ev=>lbl.addEventListener(ev,e=>{e.preventDefault();lbl.classList.add('drag')}));
+  ['dragleave','drop'].forEach(ev=>lbl.addEventListener(ev,e=>{e.preventDefault();lbl.classList.remove('drag')}));
+  lbl.addEventListener('drop',async e=>{const f=e.dataTransfer.files[0];if(!f)return;try{await fn2(f);await rebuild(true)}catch(er){status('Error: '+er.message)}});
+}
+function rawFromPayload(P){
+  if(P.v===2)return {base:P.base,ans:P.ans,meta:{...P.meta}};
+  return {base:baseFromRows(P.bcols,P.B),ans:ansFromRows(P.acols,P.A),meta:{...P.meta}};
+}
+let PUBLISHED=null,DRAFT=false;
+async function loadPublished(){
+  if(NET.on){try{const r=await fetch('/api/data',{cache:'no-store'});if(!r.ok)throw 0;PUBLISHED=JSON.parse(await gunzip(await r.arrayBuffer()))}catch(e){PUBLISHED=null}return PUBLISHED}
+  try{const r=await fetch('data/mes.json',{cache:'no-store'});if(!r.ok)throw 0;PUBLISHED=await r.json()}catch(e){PUBLISHED=null}
+  return PUBLISHED;
+}
+function useRaw(raw,isDraft){
+  RAW=raw;DRAFT=!!isDraft;
+  $('#nBase').textContent=(RAW.meta.base||'')+(RAW.meta.sheet?' · '+RAW.meta.sheet:'');$('#nAns').textContent=RAW.meta.ans||'';
+  DATA=build(RAW.base,RAW.ans,{...RAW.meta});setupFilters();setupValid();subscribeVals();renderAll();
+}
+function mesKey(){const m=DATA?DATA.meta:{};const mes=norm(m.sheet||'').replace(/^BASE DE DATOS\s*-?\s*/,'')||'MES';const y=(String(m.base||'')+' '+String(m.ans||'')).match(/20\d\d/);return slug(mes+(y?'-'+y[0]:''))}
+const fdt=iso=>{if(!iso)return '';const d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString('es-EC',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})};
+
+/* ---------- capacidades del enlace publicado ---------- */
+const CAP={db:null,user:null,art:null,dl:null,uid:null,owner:false,write:null};
+let DB_OK=false;
+/* ---------- backend Netlify (Functions + Blobs) ---------- */
+const NET={on:false};
+async function detectNet(){try{const r=await fetch('/api/ping',{cache:'no-store'});NET.on=r.ok&&(await r.json()).ok===true}catch(e){NET.on=false}}
+async function gzip(str){return await new Response(new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer()}
+async function gunzip(buf){return await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text()}
+function admKey(){let k='';try{k=localStorage.getItem('mandato_admkey')||''}catch(e){}return ($('#admKey').value||k).trim()}
+const netArt={publish:async files=>{
+  const key=admKey();if(!key){$('#admKey').focus();throw {code:'sin_clave'}}
+  const body=await gzip(files['data/mes.json']);
+  const r=await fetch('/api/data',{method:'PUT',headers:{'x-admin-key':key,'content-type':'application/octet-stream'},body});
+  if(r.status===401)throw {code:'clave'};if(!r.ok){const j=await r.json().catch(()=>({}));throw {code:j.error||('http_'+r.status)}}
+  try{localStorage.setItem('mandato_admkey',key)}catch(e){}
+}};
+let POLL=null;
+async function netPull(){
+  if(!SUBKEY)return;
+  try{const r=await fetch('/api/vals?mes='+encodeURIComponent(SUBKEY),{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();
+    const o=j.docs||{};for(const sl in PEND){o[sl]={...(o[sl]||{sup:PEND[sl].sup,items:{}})};o[sl].items={...(o[sl].items||{})};for(const h in PEND[sl].items)o[sl].items[h]={...(o[sl].items[h]||{}),...PEND[sl].items[h]}}
+    VALS=o;VALS_READY=true;clearTimeout(LOADTIMER);vmsg('');onValsChanged()}
+  catch(e){vmsg('No se pudieron leer las validaciones. Revisa tu conexión; se reintenta solo.')}
+}
+async function initCaps(){
+  if(NET.on){
+    CAP.art=netArt;CAP.uid=(()=>{let u='';try{u=localStorage.getItem('mandato_uid')||'';if(!u){u='n_'+Math.random().toString(36).slice(2,12);localStorage.setItem('mandato_uid',u)}}catch(e){}return u})();
+    CAP.owner=/admin/i.test(location.hash);CAP.write=true;DB_OK=true;
+    $('#bUpdate').hidden=!CAP.owner;$('#admKey').hidden=!CAP.owner;
+    try{$('#admKey').value=localStorage.getItem('mandato_admkey')||''}catch(e){}
+    subscribeVals();renderAll();return}
+  if(!window.claude||!window.claude.use){CAP.owner=true;$('#bUpdate').hidden=false;renderAll();return}
+  $('#bPrint').hidden=true;
+  const [db,user,art,dl]=await Promise.all(['db','user','artifact','downloads'].map(n=>window.claude.use(n).catch(()=>null)));
+  Object.assign(CAP,{db,user,art,dl});
+  if(user){CAP.uid=await user.id();CAP.owner=await user.isOwner();CAP.write=await user.can('data.write')}
+  DB_OK=!!db;
+  $('#bUpdate').hidden=!CAP.owner;
+  subscribeVals();renderAll();
+}
+
+/* ---------- validaciones (db compartida) ---------- */
+let UNSUB=null,SUBKEY=null,LOADTIMER=null,VALS_READY=false;
+function subscribeVals(){
+  if(NET.on&&DATA){const k=mesKey();if(k===SUBKEY)return;SUBKEY=k;VALS={};VALS_READY=false;clearInterval(POLL);netPull();
+    POLL=setInterval(()=>{if(document.visibilityState==='visible')netPull()},15000);return}
+  if(!CAP.db||!DATA)return;const k=mesKey();if(k===SUBKEY)return;
+  if(UNSUB)UNSUB();SUBKEY=k;VALS={};VALS_READY=false;
+  clearTimeout(LOADTIMER);LOADTIMER=setTimeout(()=>{if(!VALS_READY)vmsg('No se pudo conectar con las validaciones todavía. Lo que ves puede no estar al día.')},10000);
+  UNSUB=CAP.db.collection('meses/'+k+'/sup').onSnapshot(snap=>{
+    const o={};snap.docs.forEach(d=>{if(d.exists)o[d.id]=d.data()});VALS=o;
+    if(!snap.metadata.fromCache){VALS_READY=true;clearTimeout(LOADTIMER);vmsg('')}
+    onValsChanged();
+  },err=>{clearTimeout(LOADTIMER);vmsg(err.code==='revoked'?'Tu acceso a las validaciones cambió. Recarga la página.':'No se pudieron leer las validaciones ('+err.code+').')});
+}
+function vmsg(t){const el=$('#vMsg');el.textContent=t;el.hidden=!t}
+// cola de escritura: un documento por supervisor, una escritura a la vez
+const PEND={},BUSY={},TIMERS={};
+function queueItem(sup,h,patch,delay){
+  const sl=slug(sup);PEND[sl]=PEND[sl]||{sup,items:{}};
+  PEND[sl].items[h]={...(PEND[sl].items[h]||{}),...patch,at:new Date().toISOString(),por:CAP.uid||''};
+  // reflejo optimista
+  VALS[sl]=VALS[sl]||{sup,items:{}};VALS[sl]={...VALS[sl],items:{...(VALS[sl].items||{}),[h]:{...((VALS[sl].items||{})[h]||{}),...PEND[sl].items[h]}}};
+  clearTimeout(TIMERS[sl]);TIMERS[sl]=setTimeout(()=>flush(sl),delay??400);saveMsg('Guardando…');
+}
+async function flush(sl){
+  if(BUSY[sl]||!PEND[sl])return;
+  if(NET.on){const job=PEND[sl];delete PEND[sl];BUSY[sl]=true;let failed=false;
+    try{const r=await fetch('/api/vals?mes='+encodeURIComponent(SUBKEY)+'&sup='+encodeURIComponent(sl),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(job)});
+      if(!r.ok)throw {code:'http_'+r.status};const j=await r.json();VALS[sl]=j.doc;saveMsg('Guardado ✓');onValsChanged()}
+    catch(e){PEND[sl]=PEND[sl]?{...job,...PEND[sl],items:{...job.items,...PEND[sl].items}}:job;failed=true;saveMsg('Sin conexión, se reintenta…');setTimeout(()=>flush(sl),3000)}
+    finally{BUSY[sl]=false;if(PEND[sl]&&!failed)flush(sl)}
+    return}
+  const job=PEND[sl];delete PEND[sl];BUSY[sl]=true;
+  const ref=CAP.db.collection('meses/'+SUBKEY+'/sup').doc(sl);
+  try{
+    const cur=await ref.get();
+    if(cur.exists){await ref.update({items:job.items,...(job.envio?{envio:job.envio}:{})})}
+    else{await ref.set({sup:job.sup,items:job.items,...(job.envio?{envio:job.envio}:{})})}
+    saveMsg('Guardado ✓');
+  }catch(e){
+    if(e.code==='invalid_argument'){CAP.write=false;saveMsg('No tienes permiso para guardar en este enlace.');renderAll()}
+    else if(e.code==='unavailable'&&!job.retried){job.retried=true;PEND[sl]=PEND[sl]?{...job,items:{...job.items,...PEND[sl].items}}:job;setTimeout(()=>flush(sl),800+Math.random()*800)}
+    else saveMsg('No se guardó ('+e.code+'). Intenta de nuevo.');
+  }finally{BUSY[sl]=false;if(PEND[sl])flush(sl)}
+}
+function queueEnvio(sup,envio){const sl=slug(sup);PEND[sl]=PEND[sl]||{sup,items:{}};PEND[sl].envio=envio;VALS[sl]={...(VALS[sl]||{sup,items:{}}),envio};clearTimeout(TIMERS[sl]);flush(sl);renderAll()}
+function saveMsg(t){$('#vSave').textContent=t}
+
+/* ---------- supervisores ---------- */
+function recordsAll(){return consolidate({fFmt:'',fCat:'',fMarca:'',fCamp:'',fReg:'',fMer:'',vig:true,final:false}).filter(r=>r.res)}
+function supList(){
+  if(!DATA)return [];const R=recordsAll();const m=new Map();
+  R.forEach(r=>{const k=r.sup||'SIN SUPERVISOR';if(!m.has(k))m.set(k,[]);m.get(k).push(r)});
+  return [...m].map(([sup,L])=>{const d=VALS[slug(sup)]||{};const it=d.items||{};
+    const nVal=L.filter(r=>it[r.h]&&it[r.h].d).length,nCorr=L.filter(r=>it[r.h]&&it[r.h].d==='corr').length,nNov=L.filter(r=>it[r.h]&&it[r.h].nov).length;
+    const env=d.envio||{};const estado=env.estado==='enviado'?'ENVIADO':nVal?'EN PROCESO':'SIN INICIAR';
+    return {sup,fmts:[...new Set(L.map(r=>r.fmt))].join(', '),n:L.length,nVal,nCorr,nNov,estado,at:env.at||''}}).sort((a,b)=>a.sup<b.sup?-1:1);
+}
+function novRows(){return recordsAll().filter(r=>r.val&&(r.val.d==='corr'||r.nov))}
+
+/* ---------- vista de validación ---------- */
+let VROWS=[];
+function setupValid(){
+  const sups=supList().map(x=>x.sup);let cur='';try{cur=localStorage.getItem('mandato_sup')||''}catch(e){}
+  $('#supSel').innerHTML='<option value="">Elige tu nombre…</option>'+sups.map(x=>`<option${x===cur?' selected':''}>${esc(x)}</option>`).join('');
+}
+function vFilterRows(){
+  const sup=$('#supSel').value;if(!sup)return [];
+  const est=$('#vfEstado').value,camp=$('#vfCamp').value,q=norm($('#vq').value);
+  return recordsAll().filter(r=>r.sup===sup).filter(r=>{
+    const v=valItem(r);
+    if(est==='pend'&&v&&v.d)return false;
+    if(est==='corr'&&!(v&&v.d==='corr'))return false;
+    if(est==='nov'&&!(v&&v.nov))return false;
+    if(est==='no'&&r.res!=='NO')return false;
+    if(camp&&r.camp!==camp)return false;
+    if(q&&!norm([r.sku,r.pdv,r.obs,r.cat,r.marca,r.camp].join(' ')).includes(q))return false;
+    return true}).sort((a,b)=>(a.res==='NO'?0:a.res==='OBS'?1:2)-(b.res==='NO'?0:b.res==='OBS'?1:2)||(a.camp+a.cat+a.sku<b.camp+b.cat+b.sku?-1:1));
+}
+function locked(sup){const d=VALS[slug(sup)];return !!(d&&d.envio&&d.envio.estado==='enviado')}
+function canW(){return DB_OK&&CAP.write!==false}
+function renderValid(){
+  if(!DATA)return;
+  const sup=$('#supSel').value;
+  if(!DB_OK){vmsg(window.claude&&window.claude.use?'Inicia sesión en Claude para validar.':'Este archivo abierto desde la computadora no guarda validaciones. Usa el link de Netlify.')}
+  else if(CAP.write===false)vmsg('Tu acceso a este enlace es de solo lectura. Pide a la coordinación que te comparta el enlace como Editor para poder validar.');
+  const all=sup?recordsAll().filter(r=>r.sup===sup):[];
+  const camps=[...new Set(all.map(r=>r.camp))].sort();const cc=$('#vfCamp').value;
+  $('#vfCamp').innerHTML='<option value="">Todas</option>'+camps.map(c=>`<option${c===cc?' selected':''}>${esc(c)}</option>`).join('');
+  if(!sup){$('#vTitle').textContent='Elige tu nombre para ver tus promociones';$('#vSub').textContent='Cada supervisor revisa las promociones de su formato, confirma o corrige el resultado de campo y registra sus novedades.';$('#tVal').innerHTML='';$('#vActions').innerHTML='';$('#vNote').textContent='';$('#vProg').style.width='0';return}
+  const it=(VALS[slug(sup)]||{}).items||{};const nVal=all.filter(r=>it[r.h]&&it[r.h].d).length;const lk=locked(sup);
+  $('#vTitle').textContent=`${sup} · ${[...new Set(all.map(r=>r.fmt))].join(', ')}`;
+  $('#vSub').textContent=`${fn(nVal)} de ${fn(all.length)} promociones validadas · ${fn(all.filter(r=>it[r.h]&&it[r.h].d==='corr').length)} corregidas · ${fn(all.filter(r=>it[r.h]&&it[r.h].nov).length)} con novedad`;
+  $('#vProg').style.width=(all.length?nVal/all.length*100:0)+'%';
+  VROWS=vFilterRows();
+  const pendVis=VROWS.filter(r=>!(it[r.h]&&it[r.h].d)).length,pendAll=all.length-nVal;
+  const env=(VALS[slug(sup)]||{}).envio;
+  $('#vActions').innerHTML=lk?`<div class="bar-note ok" style="margin:0;flex:1">Validación enviada · ${esc(fdt(env.at))} · La coordinación ya puede generar el informe final.<button type="button" class="btn2 ghost" data-va="reopen"${canW()?'':' disabled'}>Reabrir para corregir</button></div>`:
+    `<button type="button" class="btn2 ghost" data-va="confall"${canW()&&pendVis?'':' disabled'}>Confirmar las ${fn(pendVis)} pendientes visibles</button>
+     <span class="confirm" id="sendBox"><button type="button" class="btn2" data-va="send"${canW()?'':' disabled'}>Enviar validación</button></span>
+     <span class="small">${pendAll?`Quedan ${fn(pendAll)} pendientes.`:'Todas validadas. Ya puedes enviar.'}</span>`;
+  const head=`<thead><tr><th>Promoción</th><th>Vigencia del mandato</th><th>Auditoría de campo</th><th>Foto</th><th style="min-width:230px">Validación del supervisor</th><th style="min-width:220px">Novedad</th></tr></thead>`;
+  $('#tVal').innerHTML=head+'<tbody>'+VROWS.map(r=>vRowHtml(r,lk)).join('')+'</tbody>';
+  $('#vNote').textContent=VROWS.length?`${fn(VROWS.length)} promociones en esta vista. Lo que marcas se guarda solo.`:($('#vfEstado').value==='pend'?'No te quedan promociones pendientes con este filtro.':'Ninguna promoción con este filtro.');
+}
+function vRowHtml(r,lk){
+  const v=valItem(r)||{};const dis=(lk||!canW())?' disabled':'';
+  const opts=STLIST.map(s2=>`<option${(v.st||r.st)===s2?' selected':''}>${s2}</option>`).join('');
+  return `<tr class="vrow${v.d==='conf'?' done':v.d==='corr'?' corr':''}" data-h="${r.h}">
+    <td><b>${esc(r.sku)}</b><div class="small">${esc(r.fmt)} · ${esc(r.camp)} · ${esc(r.cat)}${typeof r.dcto==='number'?' · '+(r.dcto*100).toFixed(0)+'%':''}</div></td>
+    <td style="white-space:nowrap">${dmy(r.ini)}<br>${dmy(r.fin)}</td>
+    <td>${stPill(r.stCampo)}<div class="small" style="margin-top:3px">${esc(r.pdv.replace(/ \/ UL$/,''))} · ${dmy(r.d)}</div>${r.obs&&r.obsCat!=='Sin detalle'?`<div class="small">“${esc(r.obs)}”</div>`:''}</td>
+    <td>${r.foto?fotoCell(r.foto):'<span class="small">Sin foto · política de la cadena</span>'}</td>
+    <td><div class="seg" role="group" aria-label="Validación"><button type="button" class="c${v.d==='conf'?' on':''}" data-d="conf"${dis}>✓ Confirmo</button><button type="button" class="x${v.d==='corr'?' on':''}" data-d="corr"${dis}>✎ Corrijo</button></div>
+      <div class="vsel"${v.d==='corr'?'':' hidden'}><select class="vin" data-st aria-label="Status correcto"${dis}>${opts}</select></div></td>
+    <td><input class="vin" data-nov value="${esc(v.nov||'')}" placeholder="Escribe la novedad…" aria-label="Novedad"${dis}></td></tr>`;
+}
+function onValsChanged(){
+  // refresca sin perder lo que el supervisor está escribiendo
+  const act=document.activeElement;
+  if(MODE==='valid'&&act&&act.matches&&act.matches('#tVal input[data-nov]')){
+    const h=act.closest('tr').dataset.h,val=act.value,pos=act.selectionStart;renderValid();
+    const el=$(`#tVal tr[data-h="${h}"] input[data-nov]`);if(el){el.value=val;el.focus();try{el.setSelectionRange(pos,pos)}catch(e){}}
+  }else if(MODE==='valid'){const sy=$('#tVal').closest('.tw').scrollTop;renderValid();$('#tVal').closest('.tw').scrollTop=sy}
+  else renderAll();
+  renderChrome();
+}
+
+/* ---------- recepción ---------- */
+function renderRecep(){
+  const sups=supList();const sent=sups.filter(x=>x.estado==='ENVIADO').length;
+  $('#rSub').textContent=DB_OK?`${sent} de ${sups.length} supervisores enviaron su validación · ${mesKey().replace('-',' ')}`:'La recepción funciona en el enlace publicado.';
+  const pill=x=>x.estado==='ENVIADO'?`<span class="pill p-ok">Enviado ${esc(fdt(x.at))}</span>`:x.estado==='EN PROCESO'?'<span class="pill p-warn">En proceso</span>':'<span class="pill p-mut">Sin iniciar</span>';
+  $('#tRec').innerHTML=`<thead><tr><th>Supervisor</th><th>Formato</th><th class="num">Promociones</th><th>Avance</th><th class="num">Corregidas</th><th class="num">Novedades</th><th>Estado</th></tr></thead><tbody>`+
+    sups.map(x=>`<tr><td><b>${esc(x.sup)}</b></td><td>${esc(x.fmts)}</td><td class="num">${fn(x.n)}</td><td><div style="display:flex;gap:8px;align-items:center"><div class="prog" style="flex:1"><i style="width:${x.n?x.nVal/x.n*100:0}%"></i></div><span class="small" style="white-space:nowrap">${fn(x.nVal)}/${fn(x.n)}</span></div></td><td class="num">${fn(x.nCorr)}</td><td class="num">${fn(x.nNov)}</td><td>${pill(x)}</td></tr>`).join('')+'</tbody>';
+  const pend=sups.filter(x=>x.estado!=='ENVIADO');
+  $('#rWarn').textContent=pend.length?`Falta recibir: ${pend.map(x=>x.sup).join(', ')}. Puedes generar el informe igual; lo pendiente queda con el resultado de campo.`:'Todos los supervisores enviaron su validación.';
+  const N=novRows();
+  $('#tNov').innerHTML=N.length?`<thead><tr><th>Supervisor</th><th>Formato</th><th>Promoción</th><th>PDV</th><th>Campo</th><th>Supervisor</th><th>Novedad</th><th>Fecha</th></tr></thead><tbody>`+
+    N.map(r=>`<tr><td>${esc(r.sup)}</td><td>${esc(r.fmt)}</td><td>${esc(r.sku)}<div class="small">${esc(r.camp)}</div></td><td>${esc(r.pdv.replace(/ \/ UL$/,''))}</td><td>${stPill(r.stCampo)}</td><td>${r.val.d==='corr'?stPill(r.val.st):'<span class="pill p-ok">Confirma</span>'}</td><td>${esc(r.nov)}</td><td style="white-space:nowrap">${esc(fdt(r.val.at))}</td></tr>`).join('')+'</tbody>'
+    :'<tbody><tr><td class="small">Todavía no hay novedades ni correcciones.</td></tr></tbody>';
+}
+
+/* ---------- vistas ---------- */
+let MODE='informe';
+function renderChrome(){
+  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('on',b.dataset.mode===MODE));
+  $('#vInforme').hidden=MODE!=='informe';$('#loaderWrap').hidden=!(SHOWLOAD&&(MODE==='informe'||!DATA)&&CAP.owner);$('#vValid').hidden=MODE!=='valid';$('#vRecep').hidden=MODE!=='recep';
+  const sups=supList();$('#recCnt').textContent=`${sups.filter(x=>x.estado==='ENVIADO').length}/${sups.length}`;
+  const showDraft=false;
+  $('#draftBar').hidden=!showDraft;
+  if(showDraft){$('#draftTxt').textContent=CAP.art?`Estás viendo ${RAW.meta.sheet||'un mes'} cargado solo en tu navegador. Los supervisores todavía no lo ven.`:'Estás viendo datos cargados en este navegador.';$('#bPublish').hidden=!CAP.art}
+}
+function renderAll(){
+  if(!DATA){$('#emptyState').hidden=false;$('#emptyTxt').textContent=CAP.owner?'Todavía no hay datos cargados. Sube la base cruda y el ingreso de merch para empezar.':'Todavía no hay datos del mes. La coordinación los cargará pronto.';
+    ['vInforme','vValid','vRecep'].forEach(id=>$('#'+id).hidden=true);$('#loaderWrap').hidden=!CAP.owner;return}
+  $('#emptyState').hidden=true;renderChrome();if(MODE==='informe')render();else if(MODE==='valid')renderValid();else renderRecep()}
+function setMode(m){MODE=m;try{localStorage.setItem('mandato_mode',m)}catch(e){}renderAll();window.scrollTo({top:0})}
+
+/* ---------- eventos ---------- */
+bindDrop($('#dBase'),$('#fBase'),loadBase);bindDrop($('#dAns'),$('#fAns'),loadAns);
+[...FIL,'fVig','fFinal'].forEach(i=>$('#'+i).addEventListener('change',()=>{VIEW.sort=null;render()}));
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(!b)return;VIEW.tab=b.dataset.t;VIEW.sort=null;$('#q').value='';render()});
+$('#tDet').addEventListener('click',e=>{const th=e.target.closest('th');if(!th)return;const k=th.dataset.k;VIEW.sort={k,d:VIEW.sort?.k===k?-VIEW.sort.d:-1};table(TBL.cols,TBL.rows,$('#detNote').textContent.split(' · ')[0])});
+$('#cObs').addEventListener('click',e=>{const b=e.target.closest('[data-oc]');if(!b)return;VIEW.obsSel=VIEW.obsSel===b.dataset.oc?null:b.dataset.oc;render();if(VIEW.obsSel)$('#obsDetSec').scrollIntoView({behavior:'smooth',block:'start'})});
+document.addEventListener('click',e=>{const im=e.target.closest('[data-lb]');if(!im)return;$('#lbImg').src=im.dataset.lb;$('#lbOpen').href=im.dataset.lb;$('#lb').hidden=false});
+$('#lb').addEventListener('click',e=>{if(e.target.closest('#lbOpen'))return;$('#lb').hidden=true;$('#lbImg').removeAttribute('src')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#lb').hidden){$('#lb').hidden=true}});
+$('#kpis').addEventListener('click',e=>{const b=e.target.closest('[data-dr]');if(!b)return;VIEW.drill=VIEW.drill===b.dataset.dr?null:b.dataset.dr;render();if(VIEW.drill)$('#kpiDetSec').scrollIntoView({behavior:'smooth',block:'nearest'})});
+$('#kpiDetClose').addEventListener('click',()=>{VIEW.drill=null;render()});
+$('#codAcc').addEventListener('click',e=>{const b=e.target.closest('[data-cf]');if(!b)return;const f=b.dataset.cf;VIEW.codOpen.has(f)?VIEW.codOpen.delete(f):VIEW.codOpen.add(f);render()});
+$('#obsDetClose').addEventListener('click',()=>{VIEW.obsSel=null;render()});
+$('#q').addEventListener('input',()=>table(TBL.cols,TBL.rows,''));
+$('#bPrint').addEventListener('click',()=>window.print());
+$('#bExport').addEventListener('click',()=>exportXlsx().catch(e=>status('Error al exportar: '+e.message)));
+document.querySelector('.modes').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.mode)});
+$('#supSel').addEventListener('change',()=>{try{localStorage.setItem('mandato_sup',$('#supSel').value)}catch(e){}$('#vfCamp').value='';renderValid()});
+['vfEstado','vfCamp'].forEach(id=>$('#'+id).addEventListener('change',renderValid));
+let VQT=null;$('#vq').addEventListener('input',()=>{clearTimeout(VQT);VQT=setTimeout(renderValid,250)});
+$('#tVal').addEventListener('click',e=>{
+  const b=e.target.closest('[data-d]');if(!b||b.disabled)return;const tr=b.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(!r)return;
+  if(b.dataset.d==='conf'){queueItem(r.sup,r.h,{d:'conf',st:r.stCampo});tr.classList.add('done');tr.classList.remove('corr');tr.querySelector('.vsel').hidden=true}
+  else{const sel=tr.querySelector('[data-st]');const st=sel.value!==r.stCampo?sel.value:(r.res==='NO'?'VALIDADO - ACTIVO':'VALIDADO - NO ACTIVA');sel.value=st;queueItem(r.sup,r.h,{d:'corr',st});tr.classList.add('corr');tr.classList.remove('done');tr.querySelector('.vsel').hidden=false;sel.focus()}
+  tr.querySelectorAll('[data-d]').forEach(x=>x.classList.toggle('on',x===b));
+  if($('#vfEstado').value==='pend')setTimeout(()=>{if(!tr.querySelector('.vsel:not([hidden]) select:focus'))renderValid()},900);
+});
+$('#tVal').addEventListener('change',e=>{const sel=e.target.closest('[data-st]');if(!sel)return;const tr=sel.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)queueItem(r.sup,r.h,{d:'corr',st:sel.value})});
+$('#tVal').addEventListener('input',e=>{const inp=e.target.closest('[data-nov]');if(!inp)return;const tr=inp.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)queueItem(r.sup,r.h,{nov:inp.value.slice(0,500)},1200)});
+$('#tVal').addEventListener('focusout',e=>{const inp=e.target.closest('[data-nov]');if(!inp)return;const sl=slug($('#supSel').value);if(PEND[sl]){clearTimeout(TIMERS[sl]);flush(sl)}});
+$('#vActions').addEventListener('click',e=>{
+  const b=e.target.closest('[data-va]');if(!b||b.disabled)return;const sup=$('#supSel').value;const va=b.dataset.va;
+  if(va==='confall'){const it=(VALS[slug(sup)]||{}).items||{};VROWS.filter(r=>!(it[r.h]&&it[r.h].d)).forEach(r=>queueItem(r.sup,r.h,{d:'conf',st:r.stCampo},300));setTimeout(renderValid,50)}
+  else if(va==='send'){const all=recordsAll().filter(r=>r.sup===sup);const it=(VALS[slug(sup)]||{}).items||{};const pend=all.filter(r=>!(it[r.h]&&it[r.h].d)).length;
+    if(pend){$('#sendBox').innerHTML=`<span class="small">Quedan ${fn(pend)} sin validar; se enviarán con el resultado de campo.</span><button type="button" class="btn2" data-va="sendok">Enviar igual</button><button type="button" class="btn2 ghost" data-va="cancel">Seguir validando</button>`}
+    else doSend(sup)}
+  else if(va==='sendok')doSend(sup);
+  else if(va==='cancel')renderValid();
+  else if(va==='reopen')queueEnvio(sup,{estado:'reabierto',at:new Date().toISOString(),por:CAP.uid||''});
+});
+function doSend(sup){const sl=slug(sup);if(PEND[sl]){clearTimeout(TIMERS[sl])}queueEnvio(sup,{estado:'enviado',at:new Date().toISOString(),por:CAP.uid||''});saveMsg('Validación enviada ✓')}
+$('#bFinal').addEventListener('click',()=>{$('#fFinal').checked=true;setMode('informe');exportXlsx().catch(e=>status('Error al exportar: '+e.message))});
+async function publishMes(){
+  if(!CAP.art)return;status('Guardando los datos en el enlace…');$('#bSaveNow').disabled=true;
+  const meta={...RAW.meta,publishedAt:new Date().toISOString()};
+  try{await CAP.art.publish({'data/mes.json':JSON.stringify({v:2,meta,base:RAW.base.map(({i,...x})=>x),ans:RAW.ans})});
+    RAW.meta=meta;DRAFT=false;LOADED.clear();SHOWLOAD=false;$('#bSaveNow').hidden=true;
+    status(`Guardado en el enlace (${fdt(meta.publishedAt)}). Quien abra el link ya ve ${meta.sheet||'los datos nuevos'}.`);renderAll()}
+  catch(e){status(e.code==='conflict'?'Se guardó otra versión al mismo tiempo; la página se recargará.':e.code==='sin_clave'?'Escribe la clave de administración para guardar.':e.code==='clave'?'La clave de administración no es correcta.':e.code==='falta_admin_key'?'Falta configurar la clave ADMIN_KEY en Netlify.':e.code==='too_large'?'Los archivos son demasiado grandes para guardarlos en el enlace.':(e.code==='not_writer'||e.code==='not_granted')?'Solo la dueña del enlace puede actualizar los datos.':'No se pudo guardar en el enlace ('+e.code+'). Intenta de nuevo.')}
+  finally{$('#bSaveNow').disabled=false}
+}
+$('#bSaveNow').addEventListener('click',()=>publishMes());
+$('#bUpdate').addEventListener('click',()=>{SHOWLOAD=!SHOWLOAD;if(MODE!=='informe')MODE='informe';renderAll();if(SHOWLOAD)$('#loaderWrap').scrollIntoView({behavior:'smooth',block:'start'})});
+$('#bCloseLoad').addEventListener('click',async()=>{SHOWLOAD=false;if(LOADED.size&&CAP.art&&CAP.owner){LOADED.clear();$('#bSaveNow').hidden=true;const P=await loadPublished();if(P)useRaw(rawFromPayload(P),false);status('No se guardó nada; sigues viendo los datos del enlace.')}renderAll()});
+(async()=>{
+  try{MODE=localStorage.getItem('mandato_mode')||'informe'}catch(e){}
+  if(!['informe','valid','recep'].includes(MODE))MODE='informe';
+  await detectNet();
+  initCaps();
+  if(NET.on){DB.del('raw');const P=await loadPublished();if(P)useRaw(rawFromPayload(P),false);else{SHOWLOAD=true;renderAll()}return}
+  const inArt=!!window.claude?.use;
+  const [saved,P]=await Promise.all([inArt?null:DB.get('raw'),loadPublished()]);
+  if(inArt)DB.del('raw');
+  if(saved&&saved.base&&saved.ans)useRaw(saved,true);
+  else if(P)useRaw(rawFromPayload(P),false);
+  else{SHOWLOAD=true;CAP.owner=CAP.owner||!inArt;$('#loaderWrap').hidden=false;status('Carga el archivo de mandato y el Answer para empezar.')}
+})();
+</script>
+
+</body>
+</html>
