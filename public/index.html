@@ -164,6 +164,7 @@ footer{margin-top:28px;font-size:11.5px;color:var(--muted)}
     <h1>Insights de Activación de Mandato</h1>
     <p id="subtitle">Cruce del mandato del mes con la auditoría en percha</p></div>
   <div class="actions">
+    <button class="btn" id="bTheme" type="button" aria-label="Cambiar entre modo claro y oscuro">☾ Modo oscuro</button>
     <button class="btn" id="bPrint" type="button">🖨 Imprimir</button>
     <button class="btn primary" id="bExport" type="button">⬇ Exportar Excel</button>
     <button class="btn" id="bUpdate" type="button" hidden>⬆ Actualizar datos del mes</button>
@@ -214,7 +215,7 @@ footer{margin-top:28px;font-size:11.5px;color:var(--muted)}
   <section class="sec" id="obsDetSec" hidden><div class="panel"><div class="sechead" style="margin-bottom:8px"><h3 id="obsDetTitle" style="margin:0"></h3><button type="button" class="tab" id="obsDetClose">Cerrar</button></div>
     <div class="tw" style="max-height:420px"><table id="tObsDet"></table></div></div></section>
 
-  <section class="sec"><div class="panel"><h3>% activación por fecha de visita</h3><div id="cTrend"></div><div class="small" id="trendNote"></div></div></section>
+  <section class="sec"><div class="panel"><h3>Auditorías y activación por fecha de visita</h3><div id="cTrend"></div><div class="small" id="trendNote"></div></div></section>
 
   <section class="sec"><div class="panel"><h3>Mapa de calor · formato × categoría (% activación)</h3><div class="tw" style="max-height:none"><table class="heat" id="tHeat"></table></div></div></section>
 
@@ -446,19 +447,23 @@ function bars(el,rows,label){
   $(el).innerHTML=rows.length?rows.map(a=>`<div class="bar"><span class="n" title="${esc(a.k)}">${esc(label?label(a):a.k)}</span><div class="track" title="${a.ok} activas · ${a.obs} con obs. · ${a.no} no activas"><i class="i-ok" style="width:${a.ok/a.n*100}%"></i><i class="i-obs" style="width:${a.obs/a.n*100}%"></i><i class="i-no" style="width:${a.no/a.n*100}%"></i></div><span class="p">${fp(a.pa)}</span></div>`).join(''):'<p class="small">Sin evaluaciones con este filtro.</p>';
 }
 function trend(E){
+  // columnas apiladas por día de visita: altura = promociones auditadas, color = resultado, etiqueta = % activación
   const a=agg(E,'d').sort((x,y)=>x.k<y.k?-1:1);
-  if(a.length<2){$('#cTrend').innerHTML='<p class="small">Se necesitan al menos dos días con visitas.</p>';$('#trendNote').textContent='';return}
-  const W=1100,H=230,L=40,R=12,T=14,Bm=34,mn=Math.min(.5,...a.map(x=>x.pa));
-  const lo=Math.floor(mn*10)/10;const x=i=>L+i*(W-L-R)/(a.length-1),y=v=>T+(1-(v-lo)/(1-lo))*(H-T-Bm);
-  let g='';for(let t=lo;t<=1.0001;t+=.1){g+=`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${L-6}" y="${y(t)+3}" text-anchor="end">${Math.round(t*100)}%</text>`}
-  const pts=a.map((d,i)=>`${x(i)},${y(d.pa)}`).join(' ');
-  const area=`${x(0)},${y(lo)} ${pts} ${x(a.length-1)},${y(lo)}`;
-  const step=Math.ceil(a.length/14);
-  const lab=a.map((d,i)=>i%step===0||i===a.length-1?`<text x="${x(i)}" y="${H-Bm+16}" text-anchor="middle">${d.k.slice(8)}/${d.k.slice(5,7)}</text>`:'').join('');
-  const dots=a.map((d,i)=>`<circle cx="${x(i)}" cy="${y(d.pa)}" r="${i===a.length-1?4.5:3}" fill="${d.pa<.75?'var(--bad)':'var(--sky)'}"><title>${d.k}: ${fp(d.pa)} (${d.n} promociones)</title></circle>`).join('');
-  $('#cTrend').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tendencia diaria de activación">${g}<polygon points="${area}" fill="var(--sky)" opacity=".15"/><polyline points="${pts}" fill="none" stroke="var(--sky)" stroke-width="2"/>${dots}${lab}</svg>`;
-  const worst=[...a].filter(d=>d.n>=10).sort((p,q)=>p.pa-q.pa)[0];
-  $('#trendNote').textContent=worst?`Día más bajo (≥10 promociones): ${worst.k} con ${fp(worst.pa)} sobre ${worst.n} promociones.`:'';
+  if(!a.length){$('#cTrend').innerHTML='<p class="small">Sin visitas con este filtro.</p>';$('#trendNote').textContent='';return}
+  const W=1100,H=280,L=44,R=10,T=26,Bm=40,ih=H-T-Bm,iw=W-L-R;
+  const mx=Math.max(...a.map(d=>d.n));const st=mx<=10?2:mx<=50?10:mx<=100?20:mx<=250?50:100;const top=Math.ceil(mx/st)*st;
+  const y=v=>T+ih-(v/top)*ih,slot=iw/a.length,bw=Math.max(6,Math.min(46,slot*.62));
+  const dias=['dom','lun','mar','mié','jue','vie','sáb'];
+  let g='';for(let t=0;t<=top;t+=st)g+=`<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${L-8}" y="${y(t)+3}" text-anchor="end">${t}</text>`;
+  const every=slot<34?Math.ceil(34/slot):1;
+  const cols=a.map((d,i)=>{const cx=L+slot*i+slot/2,x0=cx-bw/2;let yy=y(0);const seg=[['ok','var(--ok)'],['obs','var(--warn)'],['no','var(--bad)']].map(([k,c])=>{const h=d[k]/top*ih;yy-=h;return h>0?`<rect x="${x0}" y="${yy}" width="${bw}" height="${h}" fill="${c}"/>`:''}).join('');
+    const dt=new Date(d.k+'T12:00:00'),lbl=(i%every===0)?`<text x="${cx}" y="${H-Bm+15}" text-anchor="middle">${d.k.slice(8)}/${d.k.slice(5,7)}</text><text x="${cx}" y="${H-Bm+28}" text-anchor="middle" opacity=".7">${dias[dt.getDay()]}</text>`:'';
+    const pc=`<text x="${cx}" y="${y(d.n)-6}" text-anchor="middle" style="font-weight:600;fill:${d.pa<.9?'var(--bad)':'var(--ink)'}">${Math.round(d.pa*100)}%</text>`;
+    return `<g><title>${dmy(d.k)} · ${d.n} promociones · ${fp(d.pa)} activas (${d.ok} según mandato, ${d.obs} con observación, ${d.no} no activas)</title>${seg}${slot>=22?pc:''}${lbl}</g>`}).join('');
+  $('#cTrend').innerHTML=`<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.max(520,a.length*26)}px" role="img" aria-label="Promociones auditadas y % de activación por fecha de visita">${g}<text x="${L}" y="12" opacity=".8">Promociones auditadas</text>${cols}</svg></div>
+    <div class="legend"><span style="--c:var(--ok)">Activa según mandato</span><span style="--c:var(--warn)">Activa con observación</span><span style="--c:var(--bad)">No activa</span><span style="--c:transparent">El % sobre cada barra es la activación del día</span></div>`;
+  const big=a.filter(d=>d.n>=10),worst=[...big].sort((p,q)=>p.pa-q.pa)[0],most=[...a].sort((p,q)=>q.n-p.n)[0];
+  $('#trendNote').textContent=(most?`Día con más auditorías: ${dmy(most.k)} (${most.n} promociones). `:'')+(worst&&worst.pa<1?`Día más bajo con 10 o más promociones: ${dmy(worst.k)} con ${fp(worst.pa)}.`:'');
 }
 function heat(E){
   const fm=[...new Set(E.map(e=>e.fmt))].sort(),ct=[...new Set(E.map(e=>e.cat))].sort();
@@ -946,6 +951,11 @@ $('#kpiDetClose').addEventListener('click',()=>{VIEW.drill=null;render()});
 $('#codAcc').addEventListener('click',e=>{const b=e.target.closest('[data-cf]');if(!b)return;const f=b.dataset.cf;VIEW.codOpen.has(f)?VIEW.codOpen.delete(f):VIEW.codOpen.add(f);render()});
 $('#obsDetClose').addEventListener('click',()=>{VIEW.obsSel=null;render()});
 $('#q').addEventListener('input',()=>table(TBL.cols,TBL.rows,''));
+function curTheme(){const t=document.documentElement.dataset.theme;return t||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}
+function paintThemeBtn(){const d=curTheme()==='dark';$('#bTheme').textContent=d?'☀ Modo claro':'☾ Modo oscuro'}
+try{const t=localStorage.getItem('mandato_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
+paintThemeBtn();
+$('#bTheme').addEventListener('click',()=>{const n=curTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('mandato_theme',n)}catch(e){}paintThemeBtn()});
 $('#bPrint').addEventListener('click',()=>window.print());
 $('#bExport').addEventListener('click',()=>exportXlsx().catch(e=>status('Error al exportar: '+e.message)));
 document.querySelector('.modes').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.mode)});
