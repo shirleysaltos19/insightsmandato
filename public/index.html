@@ -835,7 +835,7 @@ function supList(){
 function novRows(){return recordsAll().filter(r=>r.val&&(r.val.d==='corr'||r.nov))}
 
 /* ---------- vista de validación ---------- */
-let VROWS=[];
+let VROWS=[];const STICKY=new Set();
 function setupValid(){
   const sups=supList().map(x=>x.sup);let cur='';try{cur=localStorage.getItem('mandato_sup')||''}catch(e){}
   $('#supSel').innerHTML='<option value="">Elige tu nombre…</option>'+sups.map(x=>`<option${x===cur?' selected':''}>${esc(x)}</option>`).join('');
@@ -845,7 +845,7 @@ function vFilterRows(){
   const est=$('#vfEstado').value,camp=$('#vfCamp').value,q=norm($('#vq').value);
   return recordsAll().filter(r=>r.sup===sup).filter(r=>{
     const v=valItem(r);
-    if(est==='pend'&&v&&v.d)return false;
+    if(est==='pend'&&v&&v.d&&!STICKY.has(r.h))return false;
     if(est==='corr'&&!(v&&v.d==='corr'))return false;
     if(est==='nov'&&!(v&&v.nov))return false;
     if(est==='no'&&r.res!=='NO')return false;
@@ -855,7 +855,7 @@ function vFilterRows(){
 }
 function locked(sup){const d=VALS[slug(sup)];return !!(d&&d.envio&&d.envio.estado==='enviado')}
 function canW(){return DB_OK&&CAP.write!==false}
-function renderValid(){
+function renderValid(opt){const keep=opt&&opt.keepTable;
   if(!DATA)return;
   const sup=$('#supSel').value;
   if(!DB_OK){vmsg(window.claude&&window.claude.use?'Inicia sesión en Claude para validar.':'Este archivo abierto desde la computadora no guarda validaciones. Usa el link de Netlify.')}
@@ -868,7 +868,7 @@ function renderValid(){
   $('#vTitle').textContent=`${sup} · ${[...new Set(all.map(r=>r.fmt))].join(', ')}`;
   $('#vSub').textContent=`${fn(nVal)} de ${fn(all.length)} promociones validadas · ${fn(all.filter(r=>it[r.h]&&it[r.h].d==='corr').length)} corregidas · ${fn(all.filter(r=>it[r.h]&&it[r.h].nov).length)} con novedad`;
   $('#vProg').style.width=(all.length?nVal/all.length*100:0)+'%';
-  VROWS=vFilterRows();
+  if(!keep)VROWS=vFilterRows();
   const pendVis=VROWS.filter(r=>!(it[r.h]&&it[r.h].d)).length,pendAll=all.length-nVal;
   const env=(VALS[slug(sup)]||{}).envio;
   $('#vActions').innerHTML=lk?`<div class="bar-note ok" style="margin:0;flex:1">Validación enviada · ${esc(fdt(env.at))} · La coordinación ya puede generar el informe final.<button type="button" class="btn2 ghost" data-va="reopen"${canW()?'':' disabled'}>Reabrir para corregir</button></div>`:
@@ -876,7 +876,7 @@ function renderValid(){
      <span class="confirm" id="sendBox"><button type="button" class="btn2" data-va="send"${canW()?'':' disabled'}>Enviar validación</button></span>
      <span class="small">${pendAll?`Quedan ${fn(pendAll)} pendientes.`:'Todas validadas. Ya puedes enviar.'}</span>`;
   const head=`<thead><tr><th>Promoción</th><th>Vigencia del mandato</th><th>Auditoría de campo</th><th>Foto</th><th style="min-width:230px">Validación del supervisor</th><th style="min-width:220px">Novedad</th></tr></thead>`;
-  $('#tVal').innerHTML=head+'<tbody>'+VROWS.map(r=>vRowHtml(r,lk)).join('')+'</tbody>';
+  if(!keep)$('#tVal').innerHTML=head+'<tbody>'+VROWS.map(r=>vRowHtml(r,lk)).join('')+'</tbody>';
   $('#vNote').textContent=VROWS.length?`${fn(VROWS.length)} promociones en esta vista. Lo que marcas se guarda solo.`:($('#vfEstado').value==='pend'?'No te quedan promociones pendientes con este filtro.':'Ninguna promoción con este filtro.');
 }
 function vRowHtml(r,lk){
@@ -892,13 +892,12 @@ function vRowHtml(r,lk){
     <td><input class="vin" data-nov value="${esc(v.nov||'')}" placeholder="Escribe la novedad…" aria-label="Novedad"${dis}></td></tr>`;
 }
 function onValsChanged(){
-  // refresca sin perder lo que el supervisor está escribiendo
+  // mientras el supervisor edita una fila, no se redibuja la tabla (solo los contadores)
   const act=document.activeElement;
-  if(MODE==='valid'&&act&&act.matches&&act.matches('#tVal input[data-nov]')){
-    const h=act.closest('tr').dataset.h,val=act.value,pos=act.selectionStart;renderValid();
-    const el=$(`#tVal tr[data-h="${h}"] input[data-nov]`);if(el){el.value=val;el.focus();try{el.setSelectionRange(pos,pos)}catch(e){}}
-  }else if(MODE==='valid'){const sy=$('#tVal').closest('.tw').scrollTop;renderValid();$('#tVal').closest('.tw').scrollTop=sy}
-  else renderAll();
+  if(MODE==='valid'){
+    if(act&&act.closest&&act.closest('#tVal'))renderValid({keepTable:true});
+    else{const tw=$('#tVal').closest('.tw'),sy=tw.scrollTop;renderValid();tw.scrollTop=sy}
+  }else renderAll();
   renderChrome();
 }
 
@@ -950,18 +949,17 @@ $('#q').addEventListener('input',()=>table(TBL.cols,TBL.rows,''));
 $('#bPrint').addEventListener('click',()=>window.print());
 $('#bExport').addEventListener('click',()=>exportXlsx().catch(e=>status('Error al exportar: '+e.message)));
 document.querySelector('.modes').addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.mode)});
-$('#supSel').addEventListener('change',()=>{try{localStorage.setItem('mandato_sup',$('#supSel').value)}catch(e){}$('#vfCamp').value='';renderValid()});
-['vfEstado','vfCamp'].forEach(id=>$('#'+id).addEventListener('change',renderValid));
-let VQT=null;$('#vq').addEventListener('input',()=>{clearTimeout(VQT);VQT=setTimeout(renderValid,250)});
+$('#supSel').addEventListener('change',()=>{STICKY.clear();try{localStorage.setItem('mandato_sup',$('#supSel').value)}catch(e){}$('#vfCamp').value='';renderValid()});
+['vfEstado','vfCamp'].forEach(id=>$('#'+id).addEventListener('change',()=>{STICKY.clear();renderValid()}));
+let VQT=null;$('#vq').addEventListener('input',()=>{clearTimeout(VQT);VQT=setTimeout(()=>{STICKY.clear();renderValid()},250)});
 $('#tVal').addEventListener('click',e=>{
-  const b=e.target.closest('[data-d]');if(!b||b.disabled)return;const tr=b.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(!r)return;
+  const b=e.target.closest('[data-d]');if(!b||b.disabled)return;const tr=b.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(!r)return;STICKY.add(r.h);
   if(b.dataset.d==='conf'){queueItem(r.sup,r.h,{d:'conf',st:r.stCampo});tr.classList.add('done');tr.classList.remove('corr');tr.querySelector('.vsel').hidden=true}
   else{const sel=tr.querySelector('[data-st]');const st=sel.value!==r.stCampo?sel.value:(r.res==='NO'?'VALIDADO - ACTIVO':'VALIDADO - NO ACTIVA');sel.value=st;queueItem(r.sup,r.h,{d:'corr',st});tr.classList.add('corr');tr.classList.remove('done');tr.querySelector('.vsel').hidden=false;sel.focus()}
   tr.querySelectorAll('[data-d]').forEach(x=>x.classList.toggle('on',x===b));
-  if($('#vfEstado').value==='pend')setTimeout(()=>{if(!tr.querySelector('.vsel:not([hidden]) select:focus'))renderValid()},900);
 });
-$('#tVal').addEventListener('change',e=>{const sel=e.target.closest('[data-st]');if(!sel)return;const tr=sel.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)queueItem(r.sup,r.h,{d:'corr',st:sel.value})});
-$('#tVal').addEventListener('input',e=>{const inp=e.target.closest('[data-nov]');if(!inp)return;const tr=inp.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)queueItem(r.sup,r.h,{nov:inp.value.slice(0,500)},1200)});
+$('#tVal').addEventListener('change',e=>{const sel=e.target.closest('[data-st]');if(!sel)return;const tr=sel.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)STICKY.add(r.h);if(r)queueItem(r.sup,r.h,{d:'corr',st:sel.value})});
+$('#tVal').addEventListener('input',e=>{const inp=e.target.closest('[data-nov]');if(!inp)return;const tr=inp.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)STICKY.add(r.h);if(r)queueItem(r.sup,r.h,{nov:inp.value.slice(0,500)},1200)});
 $('#tVal').addEventListener('focusout',e=>{const inp=e.target.closest('[data-nov]');if(!inp)return;const sl=slug($('#supSel').value);if(PEND[sl]){clearTimeout(TIMERS[sl]);flush(sl)}});
 $('#vActions').addEventListener('click',e=>{
   const b=e.target.closest('[data-va]');if(!b||b.disabled)return;const sup=$('#supSel').value;const va=b.dataset.va;
