@@ -884,13 +884,18 @@ function renderValid(opt){const keep=opt&&opt.keepTable;
   if(!keep)$('#tVal').innerHTML=head+'<tbody>'+VROWS.map(r=>vRowHtml(r,lk)).join('')+'</tbody>';
   $('#vNote').textContent=VROWS.length?`${fn(VROWS.length)} promociones en esta vista. Lo que marcas se guarda solo.`:($('#vfEstado').value==='pend'?'No te quedan promociones pendientes con este filtro.':'Ninguna promoción con este filtro.');
 }
+function stCell(r,v){
+  if(v&&v.d==='corr'&&v.st&&v.st!==r.stCampo)return `<div class="small" style="margin-bottom:3px">Status final</div>${stPill(v.st)}<div class="small" style="margin-top:4px;text-decoration:line-through">Campo: ${esc(r.stCampo.replace('VALIDADO - ',''))}</div>`;
+  if(v&&v.d==='conf')return `${stPill(r.stCampo)}<div class="small" style="margin-top:3px">✓ Confirmado por supervisor</div>`;
+  return stPill(r.stCampo);
+}
 function vRowHtml(r,lk){
   const v=valItem(r)||{};const dis=(lk||!canW())?' disabled':'';
   const opts=STLIST.map(s2=>`<option${(v.st||r.st)===s2?' selected':''}>${s2}</option>`).join('');
   return `<tr class="vrow${v.d==='conf'?' done':v.d==='corr'?' corr':''}" data-h="${r.h}">
     <td><b>${esc(r.sku)}</b><div class="small">${esc(r.fmt)} · ${esc(r.camp)} · ${esc(r.cat)}${typeof r.dcto==='number'?' · '+(r.dcto*100).toFixed(0)+'%':''}</div></td>
     <td style="white-space:nowrap">${dmy(r.ini)}<br>${dmy(r.fin)}</td>
-    <td>${stPill(r.stCampo)}<div class="small" style="margin-top:3px">${esc(r.pdv.replace(/ \/ UL$/,''))} · ${dmy(r.d)}</div>${r.obs&&r.obsCat!=='Sin detalle'?`<div class="small">“${esc(r.obs)}”</div>`:''}</td>
+    <td><div class="stcell">${stCell(r,v)}</div><div class="small" style="margin-top:3px">${esc(r.pdv.replace(/ \/ UL$/,''))} · ${dmy(r.d)}</div>${r.obs&&r.obsCat!=='Sin detalle'?`<div class="small">“${esc(r.obs)}”</div>`:''}</td>
     <td>${r.foto?fotoCell(r.foto):'<span class="small">Sin foto · política de la cadena</span>'}</td>
     <td><div class="seg" role="group" aria-label="Validación"><button type="button" class="c${v.d==='conf'?' on':''}" data-d="conf"${dis}>✓ Confirmo</button><button type="button" class="x${v.d==='corr'?' on':''}" data-d="corr"${dis}>✎ Corrijo</button></div>
       <div class="vsel"${v.d==='corr'?'':' hidden'}><select class="vin" data-st aria-label="Status correcto"${dis}>${opts}</select></div></td>
@@ -967,8 +972,9 @@ $('#tVal').addEventListener('click',e=>{
   if(b.dataset.d==='conf'){queueItem(r.sup,r.h,{d:'conf',st:r.stCampo});tr.classList.add('done');tr.classList.remove('corr');tr.querySelector('.vsel').hidden=true}
   else{const sel=tr.querySelector('[data-st]');const st=sel.value!==r.stCampo?sel.value:(r.res==='NO'?'VALIDADO - ACTIVO':'VALIDADO - NO ACTIVA');sel.value=st;queueItem(r.sup,r.h,{d:'corr',st});tr.classList.add('corr');tr.classList.remove('done');tr.querySelector('.vsel').hidden=false;sel.focus()}
   tr.querySelectorAll('[data-d]').forEach(x=>x.classList.toggle('on',x===b));
+  tr.querySelector('.stcell').innerHTML=stCell(r,valItem(r));
 });
-$('#tVal').addEventListener('change',e=>{const sel=e.target.closest('[data-st]');if(!sel)return;const tr=sel.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)STICKY.add(r.h);if(r)queueItem(r.sup,r.h,{d:'corr',st:sel.value})});
+$('#tVal').addEventListener('change',e=>{const sel=e.target.closest('[data-st]');if(!sel)return;const tr=sel.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)STICKY.add(r.h);if(r){queueItem(r.sup,r.h,{d:'corr',st:sel.value});tr.querySelector('.stcell').innerHTML=stCell(r,valItem(r))}});
 $('#tVal').addEventListener('input',e=>{const inp=e.target.closest('[data-nov]');if(!inp)return;const tr=inp.closest('tr');const r=VROWS.find(x=>x.h===tr.dataset.h);if(r)STICKY.add(r.h);if(r)queueItem(r.sup,r.h,{nov:inp.value.slice(0,500)},1200)});
 $('#tVal').addEventListener('focusout',e=>{const inp=e.target.closest('[data-nov]');if(!inp)return;const sl=slug($('#supSel').value);if(PEND[sl]){clearTimeout(TIMERS[sl]);flush(sl)}});
 $('#vActions').addEventListener('click',e=>{
